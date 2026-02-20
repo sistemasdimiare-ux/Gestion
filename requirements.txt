@@ -1,4 +1,4 @@
 streamlit
-dropbox==11.36.0
+dropbox
 pandas
 openpyxl
