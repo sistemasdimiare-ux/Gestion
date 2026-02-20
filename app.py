@@ -54,7 +54,7 @@ with st.form("main_form", clear_on_submit=True):
         dni_cliente = st.text_input("N° DE DOCUMENTO (CLIENTE)")
         email_cliente = st.text_input("EMAIL DE CLIENTE")
         tipo_op = st.text_input("Tipo de Operación")
-        producto = st.text_input("PRODUCTO")
+        producto = st.selectbox("PRODUCTO", ["NAKED", "DUO INT + TV", "DUO TV", "DUO BA", "TRIO"])
         cod_fe = st.text_input("Código FE")
         pedido = st.text_input("N° de Pedido")
 
