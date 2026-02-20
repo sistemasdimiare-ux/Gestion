@@ -40,25 +40,72 @@ def guardar_en_dropbox(nombre, nota):
         st.error(f"Error: {e}")
         return False
 
-# --- INTERFAZ PARA EL CELULAR ---
-st.set_page_config(page_title="Registro Rápido", page_icon="📝")
+# --- INTERFAZ DEL FORMULARIO ---
+st.set_page_config(page_title="Sistema de Gestión Diaria", page_icon="📝")
+st.title("📝 Registro de Gestión de Ventas")
 
-st.title("📝 Nuevo Registro")
-st.write("Completa los campos abajo:")
-
-with st.form("mi_formulario", clear_on_submit=True):
-    nombre_input = st.text_input("Tu Nombre")
-    nota_input = st.text_area("Escribe la Nota o Actividad")
+with st.form("formulario_ventas", clear_on_submit=True):
+    col1, col2 = st.columns(2)
     
-    boton = st.form_submit_button("Enviar Registro")
+    with col1:
+        zonal = st.selectbox("ZONAL", ["TRUJILLO", "LIMA NORTE", "LIMA SUR - FIJA", "LIMA ESTE", "HUANCAYO", "CAJAMARCA", "TARAPOTO"])
+        dni_vendedor = st.text_input("N° DOCUMENTO VENDEDOR")
+        nombre_cliente = st.text_input("NOMBRE DE CLIENTE")
+        dni_cliente = st.text_input("N° DE DOCUMENTO (CLIENTE)")
+        email_cliente = st.text_input("EMAIL DE CLIENTE")
+        tipo_op = st.text_input("Tipo de Operación")
+        producto = st.text_input("PRODUCTO")
+        cod_fe = st.text_input("Código FE")
+        pedido = st.text_input("N° de Pedido")
 
-if boton:
-    if nombre_input and nota_input:
-        with st.spinner("Guardando en Dropbox..."):
-            exito = guardar_en_dropbox(nombre_input, nota_input)
-            if exito:
-                st.success("¡Guardado correctamente! Ya puedes cerrar esta pestaña.")
+    with col2:
+        detalle = st.text_area("DETALLE")
+        direccion = st.text_input("DIRECCION DE INSTALACION")
+        contacto1 = st.text_input("N° DE CONTACTO DE CLIENTE 1")
+        contacto2 = st.text_input("N° DE CONTACTO DE CLIENTE 2")
+        venta_piloto = st.radio("¿Venta Piloto?", ["SI", "NO"])
+        motivo_no_venta = st.text_input("INDICAR MOTIVO DE NO VENTA")
+        nom_referido = st.text_input("NOMBRE Y APELLIDO DE REFERIDO")
+        cont_referido = st.text_input("N° DE CONTACTO REFERIDO")
+
+    enviado = st.form_submit_button("Enviar Registro")
+
+if enviado:
+    if not dni_vendedor or not nombre_cliente:
+        st.error("Por favor, llena los campos básicos (Vendedor y Cliente).")
     else:
-        st.warning("Por favor rellena todos los campos.")
+        # --- LÓGICA DE FECHA Y HORA ---
+        ahora = datetime.now()
+        
+        # Crear el diccionario con las 20 columnas exactas de tu Excel
+        datos = {
+            "Marca temporal": ahora.strftime("%d/%m/%Y %H:%M:%S"),
+            "ZONAL": zonal,
+            "N° DOCUMENTO VENDEDOR": dni_vendedor,
+            "DETALLE": detalle,
+            "Tipo de Operación": tipo_op,
+            "NOMBRE DE CLIENTE": nombre_cliente,
+            "N° DE DOCUMENTO": dni_cliente,
+            "DIRECCION DE INSTALACION": direccion,
+            "EMAIL DE CLIENTE": email_cliente,
+            "N° DE CONTACTO DE CLIENTE 1": contacto1,
+            "N° DE CONTACTO DE CLIENTE 2": contacto2,
+            "PRODUCTO": producto,
+            "Código FE": cod_fe,
+            "N° de Pedido": pedido,
+            "¿Venta Piloto?": venta_piloto,
+            "INDICAR MOTIVO DE NO VENTA": motivo_no_venta,
+            "NOMBRE Y APELLIDO DE REFERIDO": nom_referido,
+            "N° DE CONTACTO REFERIDO": cont_referido,
+            "Fecha": ahora.strftime("%d/%m/%Y"),
+            "Hora": ahora.strftime("%H:%M:%S")
+        }
 
-
+        df_nuevo = pd.DataFrame([datos])
+        
+        try:
+            save_to_dropbox(df_nuevo)
+            st.success("✅ ¡Registro guardado exitosamente en Dropbox!")
+            st.balloons()
+        except Exception as e:
+            st.error(f"Error al conectar con Dropbox: {e}")
