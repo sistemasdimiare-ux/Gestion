@@ -62,9 +62,3 @@ if boton:
         st.warning("Por favor rellena todos los campos.")
 
 
-streamlit
-dropbox
-pandas
-openpyxl
-
-
