@@ -1,0 +1,70 @@
+# Conector Streamlit Cloud, el puente entre un movil y nuestro motor
+
+import streamlit as st
+import dropbox
+import pandas as pd
+import io
+from datetime import datetime
+
+# --- CONFIGURACIÓN ---
+# Aquí pegarás tu Token (entre las comillas)
+DROPBOX_TOKEN = "TU_TOKEN_AQUÍ" 
+NOMBRE_ARCHIVO = "/datos.xlsx" # Asegúrate que empiece con /
+
+# --- FUNCIÓN PARA GUARDAR EN DROPBOX ---
+def guardar_en_dropbox(nombre, nota):
+    try:
+        dbx = dropbox.Dropbox(DROPBOX_TOKEN)
+        
+        # 1. Descargar el archivo actual
+        _, res = dbx.files_download(NOMBRE_ARCHIVO)
+        df = pd.read_excel(io.BytesIO(res.content))
+        
+        # 2. Crear la nueva fila
+        nueva_fila = {
+            "Nombre": nombre,
+            "Fecha": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "Nota": nota
+        }
+        
+        # 3. Añadir la fila al Excel
+        df = pd.concat([df, pd.DataFrame([nueva_fila])], ignore_index=True)
+        
+        # 4. Volver a subir el archivo actualizado
+        buffer = io.BytesIO()
+        df.to_excel(buffer, index=False)
+        buffer.seek(0)
+        dbx.files_upload(buffer.read(), NOMBRE_ARCHIVO, mode=dropbox.files.WriteMode.overwrite)
+        return True
+    except Exception as e:
+        st.error(f"Error: {e}")
+        return False
+
+# --- INTERFAZ PARA EL CELULAR ---
+st.set_page_config(page_title="Registro Rápido", page_icon="📝")
+
+st.title("📝 Nuevo Registro")
+st.write("Completa los campos abajo:")
+
+with st.form("mi_formulario", clear_on_submit=True):
+    nombre_input = st.text_input("Tu Nombre")
+    nota_input = st.text_area("Escribe la Nota o Actividad")
+    
+    boton = st.form_submit_button("Enviar Registro")
+
+if boton:
+    if nombre_input and nota_input:
+        with st.spinner("Guardando en Dropbox..."):
+            exito = guardar_en_dropbox(nombre_input, nota_input)
+            if exito:
+                st.success("¡Guardado correctamente! Ya puedes cerrar esta pestaña.")
+    else:
+        st.warning("Por favor rellena todos los campos.")
+
+
+streamlit
+dropbox
+pandas
+openpyxl
+
+
