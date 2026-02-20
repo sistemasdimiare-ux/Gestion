@@ -2,7 +2,7 @@
 
 import streamlit as st
 import pandas as pd
-import dropbox==11.36.0
+import dropbox
 from dropbox import Dropbox
 from datetime import datetime
 import io
