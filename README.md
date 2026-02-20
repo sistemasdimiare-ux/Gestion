@@ -1,1 +1,1 @@
-# SistemadeGesti-nDiaria
+# SistdeGestDiaria
