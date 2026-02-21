@@ -2,12 +2,9 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import time
-# Nota: Asegúrate de tener importada tu función save_to_dropbox y la librería de Dropbox
-
 import dropbox # Asegúrate de tener esta línea al inicio
 import io
 
-# --- ESTA ES LA FUNCIÓN QUE FALTA ---
 def save_to_dropbox(df_nuevo):
     # Reemplaza con tu Token real
     DROPBOX_ACCESS_TOKEN = "sl.u.AGW0oa1DJ2do6TMwxIDdwCnbQbshA5kP7eTXTdecKhGvPh6ayjw99J4NpejDTR68Og34WqHiLLq63SKdik9f1RcJbgYuunkUIf0zvRwMelIvvfLbxavtGGn_Hqdv7NXq9suQmIYlivKOpWXXjJ4qP9RD98VmLT6uc8UrQGG77cbQ66LzWZLKK8Uzp-BvjT2dOAC-yGv862dBKI5I0QrmJoK2rt4PXv9uJDLXn996P_Q9pLHUs2BWSnipRUBOrP-1SbTdU7CDFPkPC62FA9SUy8L1cBwhn6jFXqdrspiI2wWLQHwaIxEtRxw7StXi3n875mRc9xvL8tzjx-gMm43lgYkFKhp6Jy2x2rpCP2ut89XZjqUUzAxV7D2ZwZ-n_2C9mccbImiUujFnnSRI-VF6SPB4VovVaLVGwH9iAGyO8n7mFU_tfLdbuw0D2H824pYrF9VrQ8huKTP9bW_v0Fod45FkWhB5LM6p4rPrJQkANpiA94LA5EypxonEWczlbtrUZ3keb_Sy5fmTNzdgfFumbXffwcI4nCgEr5idXh-C9zkOQ-OontU0P2Z0QF6RAMKlfmaNCE1-I3_IECLNR05lDgf3r_gNIv4CIaHnfta7RFZSVdD34mHI1IlWYPCJSHUprczRe7tAiF-vhBejIvfFIrruXuUYZkuOz8tJC2fJkPcr0CkMzuvAQYZEYIC-VcAaKGYPFOK7SFPZumztWvJLWrP77XYZ0Dy97MmUrcOi2rnxpsfYe2m8Hk4L9OxZsxW8eSDEHjbaslj5e-mRVcRjK2CKxkC1YKCcgBFsAY0e8ya81bfqHmLYDZDmCf_slVh7YSJHkSvVoSM73zr4gY6TPf74QWU44GSdq7qlQpOIHzae9C4tx1s_p5IxqfJRKvAgA6YCelhSzwiFEs5W8sOnXAavuGfO8FcNjEb5Dk0GfmMEReRqyPid-eh7iHnRJ19yrTKNqm27Qc05qXQTsyzMQUma2uTDF3YdeKjS5gsypZEsJRtDPgkqq2ngst4usUidNa_Zel811DZebSnQ8JA8gNoM6TMsSss7C-tPQbY-amxyyPPNy7rQNpqow5dY9eOnROuOAyu50rB3pCH5vo-2-GSzULlsruHfiCqNu0LNjDWTkrK0xz1ywOFFNDROJ8K_fZM3jCkpc6BHOtp373yH38gA5CKGh8zylFMeK7NaOaeBFBO503US47E9Zjh155qCgpPqs-fLmKPRuT6G6-wLyZ1vMZLVEbCV2dr6ZyWUf0jcIILXWA-TXPZksGaZf03O-u8Cuq2JMXyDDhWHhO5B1rA3NRTkXSl-UmAbWZMYztdc9ps9GwCAKIvCoNxMvq-okJc" 
@@ -22,15 +19,17 @@ def save_to_dropbox(df_nuevo):
         # 2. Unir los datos nuevos
         df_final = pd.concat([df_actual, df_nuevo], ignore_index=True)
     except:
-        # Si el archivo no existe, el nuevo es el primero
+        # Si el archivo no existe o hay error, el nuevo es el inicio
         df_final = df_nuevo
 
-    # 3. Guardar y subir
+    # 3. Guardar y subir (USANDO EL MOTOR ESTÁNDAR)
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+    # Hemos quitado engine='xlsxwriter' para evitar el error de "No module named"
+    with pd.ExcelWriter(output) as writer:
         df_final.to_excel(writer, index=False)
     
     dbx.files_upload(output.getvalue(), DROPBOX_FILE_PATH, mode=dropbox.files.WriteMode.overwrite)
+
 # ------------------------------------
 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
