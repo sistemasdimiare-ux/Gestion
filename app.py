@@ -4,6 +4,7 @@ from datetime import datetime
 import time
 import dropbox # Asegúrate de tener esta línea al inicio
 import io
+import pytz # Importante para manejar zonas horarias
 
 def save_to_dropbox(df_nuevo):
     # Reemplaza con tu Token real
@@ -128,7 +129,9 @@ if enviado:
             st.write(f"- {err}")
     else:
         # PROCESO DE GUARDADO
-        ahora = datetime.now()
+        zona_horaria = pytz.timezone('America/Lima')
+        # Capturar la hora actual en esa zona específica
+        ahora = datetime.now(zona_horaria)
         NuevosDatos = {
             "Marca temporal": ahora.strftime("%d/%m/%Y %H:%M:%S"),
             "ZONAL": zonal,
