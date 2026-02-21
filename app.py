@@ -41,7 +41,7 @@ def save_to_dropbox(df_new):
 
 # --- 3. INTERFAZ DEL FORMULARIO (DINÁMICO) ---
 st.set_page_config(page_title="Gestión de Ventas", layout="wide")
-st.title("📝 Registro de Gestión de Ventas")
+st.title("📝 Registro de Ventas")
 
 # Creamos las columnas fuera de un form
 col1, col2 = st.columns(2)
