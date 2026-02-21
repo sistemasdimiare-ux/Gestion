@@ -6,6 +6,12 @@ import dropbox
 import io
 import pytz
 
+def limpiar_formulario():
+    for key in st.session_state.keys():
+        # Borramos todo excepto los datos del vendedor (sidebar)
+        if key not in ["zonal_vendedor", "dni_vendedor_sidebar"]:
+            del st.session_state[key]
+            
 # --- 1. CONFIGURACIÓN Y FUNCIÓN DE GUARDADO ---
 st.set_page_config(page_title="Gestión de Ventas", layout="wide")
 
