@@ -4,6 +4,35 @@ from datetime import datetime
 import time
 # Nota: Asegúrate de tener importada tu función save_to_dropbox y la librería de Dropbox
 
+import dropbox # Asegúrate de tener esta línea al inicio
+import io
+
+# --- ESTA ES LA FUNCIÓN QUE FALTA ---
+def save_to_dropbox(df_nuevo):
+    # Reemplaza con tu Token real
+    DROPBOX_ACCESS_TOKEN = "TU_TOKEN_AQUÍ" 
+    DROPBOX_FILE_PATH = "/Gestion Analitica/Alvaro/GestionDiaria.xlsx" # Tu ruta de archivo
+    
+    dbx = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
+    
+    try:
+        # 1. Intentar descargar el archivo actual
+        _, res = dbx.files_download(DROPBOX_FILE_PATH)
+        df_actual = pd.read_excel(io.BytesIO(res.content))
+        # 2. Unir los datos nuevos
+        df_final = pd.concat([df_actual, df_nuevo], ignore_index=True)
+    except:
+        # Si el archivo no existe, el nuevo es el primero
+        df_final = df_nuevo
+
+    # 3. Guardar y subir
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df_final.to_excel(writer, index=False)
+    
+    dbx.files_upload(output.getvalue(), DROPBOX_FILE_PATH, mode=dropbox.files.WriteMode.overwrite)
+# ------------------------------------
+
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Gestión de Ventas", layout="wide")
 
