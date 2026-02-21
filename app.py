@@ -55,6 +55,7 @@ with st.container():
             email_cliente = st.text_input("EMAIL DE CLIENTE").lower()
             tipo_op = st.selectbox("Tipo de Operación", ["SELECCIONA","CAPTACIÓN", "MIGRACIÓN", "COMPLETA TV", "COMPLETA MT", "COMPLETA BA"])
             producto = st.selectbox("PRODUCTO", ["SELECCIONA", "NAKED", "DUO INT + TV", "DUO TV", "DUO BA", "TRIO"])
+            cod_fe = st.text_input("Código FE").upper()
             pedido = st.text_input("N° de Pedido *", max_chars=10)
 
         with col2:
