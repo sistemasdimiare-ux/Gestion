@@ -49,9 +49,16 @@ with st.form("main_form", clear_on_submit=True):
 
     with col1:
         zonal = st.selectbox("ZONAL", ["TRUJILLO", "LIMA NORTE", "LIMA SUR - FIJA", "LIMA ESTE", "HUANCAYO", "CAJAMARCA", "TARAPOTO"])
-        dni_vendedor = st.text_input("N° DOCUMENTO VENDEDOR", max_chars=11)
+        dni_vendedor = st.text_input("N° DOCUMENTO VENDEDOR", max_chars=11, help="Solo números")
+        if dni_vendedor and not dni_vendedor.isdigit():
+            st.error("⚠️ El DNI del vendedor solo debe contener números. Por favor, bórralo y corrige.")
+        
         nombre_cliente = st.text_input("NOMBRE DE CLIENTE").upper()
+        
         dni_cliente = st.text_input("N° DE DOCUMENTO (CLIENTE)", max_chars=11)
+        if dni_cliente and not dni_cliente.isdigit():
+            st.error("⚠️ El DNI del cliente solo debe contener números.")
+
         email_cliente = st.text_input("EMAIL DE CLIENTE").lower()
         tipo_op = st.selectbox("Tipo de Operación", ["CAPTACIÓN", "MIGRACIÓN", "COMPLETA TV", "COMPLETA MT", "COMPLETA BA"])
         producto = st.selectbox("PRODUCTO", ["NAKED", "DUO INT + TV", "DUO TV", "DUO BA", "TRIO"])
