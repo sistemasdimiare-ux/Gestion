@@ -62,6 +62,7 @@ with st.container():
             detalle = st.selectbox("DETALLE", ["SELECCIONA", "VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
             direccion = st.text_input("DIRECCION DE INSTALACION").upper()
             contacto1 = st.text_input("N° DE CONTACTO 1 *", max_chars=9)
+            contacto2 = st.text_input("N° DE CONTACTO DE CLIENTE 2", max_chars=9)
             venta_piloto = st.radio("¿Venta Piloto? *", ["SI", "NO"], index=None, horizontal=True)
             
             motivo_no_venta = st.selectbox("INDICAR MOTIVO DE NO VENTA", ["", "CUENTA CON SERVICIO DE COMPETENCIA", "CLIENTE MOVISTAR", "MALA EXPERIENCIA", "CARGO FIJO INSUFICIENTE"])
