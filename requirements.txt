@@ -2,3 +2,4 @@ streamlit
 dropbox
 pandas
 openpyxl
+pytz
