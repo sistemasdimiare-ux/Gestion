@@ -46,31 +46,62 @@ st.markdown("Complete los datos del cliente y la operación:")
 
 with st.form("main_form", clear_on_submit=True):
     col1, col2 = st.columns(2)
+
     
     with col1:
         zonal = st.selectbox("ZONAL", ["TRUJILLO", "LIMA NORTE", "LIMA SUR - FIJA", "LIMA ESTE", "HUANCAYO", "CAJAMARCA", "TARAPOTO"])
-        dni_vendedor = st.text_input("N° DOCUMENTO VENDEDOR")
-        nombre_cliente = st.text_input("NOMBRE DE CLIENTE")
-        dni_cliente = st.text_input("N° DE DOCUMENTO (CLIENTE)")
-        email_cliente = st.text_input("EMAIL DE CLIENTE")
-        tipo_op = st.text_input("Tipo de Operación")
+         # Validación de solo números para DNI Vendedor
+        dni_vendedor = st.text_input("N° DOCUMENTO VENDEDOR", max_chars=11)
+        
+        # Formateo automático a MAYÚSCULAS para el nombre
+        nombre_cliente = st.text_input("NOMBRE DE CLIENTE").upper()
+        
+        dni_cliente = st.text_input("N° DE DOCUMENTO (CLIENTE)", max_chars=11)
+        email_cliente = st.text_input("EMAIL DE CLIENTE").lower()
+        tipo_op = st.selectbox("Tipo de Operación", ["CAPTACIÓN", "MIGRACIÓN", "COMPLETA TV", "COMPLETA MT", "COMPLETA BA"])
         producto = st.selectbox("PRODUCTO", ["NAKED", "DUO INT + TV", "DUO TV", "DUO BA", "TRIO"])
-        cod_fe = st.text_input("Código FE")
-        pedido = st.text_input("N° de Pedido")
+        cod_fe = st.text_input("Código FE").upper()
+        pedido = st.text_input("N° de Pedido", max_chars=10)
+
 
     with col2:
-        detalle = st.text_area("DETALLE")
-        direccion = st.text_input("DIRECCION DE INSTALACION")
-        contacto1 = st.text_input("N° DE CONTACTO DE CLIENTE 1")
-        contacto2 = st.text_input("N° DE CONTACTO DE CLIENTE 2")
+        detalle = st.selectbox("DETALLE", ["VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
+        direccion = st.text_input("DIRECCION DE INSTALACION").upper()
+        contacto1 = st.text_input("N° DE CONTACTO DE CLIENTE 1", max_chars=9)
+        contacto2 = st.text_input("N° DE CONTACTO DE CLIENTE 2", max_chars=9)
         venta_piloto = st.radio("¿Venta Piloto?", ["SI", "NO"], horizontal=True)
-        motivo_no_venta = st.text_input("INDICAR MOTIVO DE NO VENTA")
-        nom_referido = st.text_input("NOMBRE Y APELLIDO DE REFERIDO")
-        cont_referido = st.text_input("N° DE CONTACTO REFERIDO")
+      # Lógica: Solo pedir motivo si es NO-VENTA (se puede hacer fuera del form para que sea dinámico, 
+        # pero dentro del form lo manejamos como validación al enviar)
+        motivo_no_venta = st.selectbox("INDICAR MOTIVO DE NO VENTA", ["CUENTA CON SERVICIO DE COMPETENCIA", "CLIENTE MOVISTAR", "MALA EXPERIENCIA", "CARGO FIJO INSUFICIENTE"])        
+        nom_referido = st.text_input("NOMBRE Y APELLIDO DE REFERIDO").upper()
+        cont_referido = st.text_input("N° DE CONTACTO REFERIDO", max_chars=9)
 
     # Botón de envío
     enviado = st.form_submit_button("Enviar Registro")
 
+# --- LÓGICA DE VALIDACIÓN ANTES DE GUARDAR ---
+if enviado:
+    # 1. Validar que los campos de números sean realmente números
+    if not dni_vendedor.isdigit() or not dni_cliente.isdigit():
+        st.error("❌ Los campos de Documento (Vendedor/Cliente) deben contener solo números.")
+    
+    # 2. Validar longitud mínima de DNI (por ejemplo 8 dígitos)
+    elif len(dni_cliente) < 8:
+        st.error("❌ El N° de Documento del cliente debe tener al menos 8 dígitos.")
+        
+    # 3. Validar campos obligatorios
+    elif not nombre_cliente or not pedido:
+        st.error("❌ El Nombre del Cliente y el N° de Pedido son obligatorios.")
+    
+    # 4. Validar si es NO-VENTA que indique el motivo
+   elif detalle == "NO-VENTA" and motivo_no_venta == "":
+        st.error("❌ Por favor, selecciona un motivo de la lista para la NO-VENTA.")
+    else:
+        # Si pasa todas las validaciones, procede a guardar (aquí iría tu lógica de guardado)
+        ahora = datetime.now()
+        # ... (resto de tu código de guardado) ...
+        st.success("✅ ¡Registro validado y guardado!")
+        
 # --- 4. LÓGICA AL PRESIONAR ENVIAR ---
 if enviado:
     if not dni_vendedor or not nombre_cliente:
