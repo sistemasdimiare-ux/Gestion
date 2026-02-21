@@ -49,14 +49,14 @@ with col1:
         
     email_cliente = st.text_input("EMAIL DE CLIENTE").lower()
     tipo_op = st.selectbox("Tipo de Operación", ["SELECCIONA","CAPTACIÓN", "MIGRACIÓN", "COMPLETA TV", "COMPLETA MT", "COMPLETA BA"])
-    producto = st.selectbox("SELECCIONA","PRODUCTO", ["NAKED", "DUO INT + TV", "DUO TV", "DUO BA", "TRIO"])
+    producto = st.selectbox("PRODUCTO", ["SELECCIONA";"NAKED", "DUO INT + TV", "DUO TV", "DUO BA", "TRIO"])
     cod_fe = st.text_input("Código FE").upper()
     pedido = st.text_input("N° de Pedido *", max_chars=10)
     if pedido and not pedido.isdigit():
         st.error("⚠️ Solo números")
 
 with col2:
-    detalle = st.selectbox("SELECCIONA","DETALLE", ["VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
+    detalle = st.selectbox("DETALLE", ["SELECCIONA", "VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
     direccion = st.text_input("DIRECCION DE INSTALACION").upper()
     
     contacto1 = st.text_input("N° DE CONTACTO DE CLIENTE 1 *", max_chars=9)
