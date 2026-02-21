@@ -39,67 +39,79 @@ def save_to_dropbox(df_new):
         mode=dropbox.files.WriteMode.overwrite
     )
 
-# --- 3. INTERFAZ DEL FORMULARIO ---
+# --- 3. INTERFAZ DEL FORMULARIO (DINÁMICO) ---
 st.set_page_config(page_title="Gestión de Ventas", layout="wide")
 st.title("📝 Registro de Gestión de Ventas")
-st.markdown("Complete los datos del cliente y la operación:")
 
-with st.form("main_form", clear_on_submit=True):
-    col1, col2 = st.columns(2)
+# Creamos las columnas fuera de un form
+col1, col2 = st.columns(2)
 
-    with col1:
-        zonal = st.selectbox("ZONAL", ["TRUJILLO", "LIMA NORTE", "LIMA SUR - FIJA", "LIMA ESTE", "HUANCAYO", "CAJAMARCA", "TARAPOTO"])
-        dni_vendedor = st.text_input("N° DOCUMENTO VENDEDOR", max_chars=11, help="Solo números")
-        if dni_vendedor and not dni_vendedor.isdigit():
-            st.error("⚠️ El DNI del vendedor solo debe contener números. Por favor, bórralo y corrige.")
+with col1:
+    zonal = st.selectbox("ZONAL", ["TRUJILLO", "LIMA NORTE", "LIMA SUR - FIJA", "LIMA ESTE", "HUANCAYO", "CAJAMARCA", "TARAPOTO"])
+    
+    dni_vendedor = st.text_input("N° DOCUMENTO VENDEDOR", max_chars=11)
+    if dni_vendedor and not dni_vendedor.isdigit():
+        st.error("⚠️ Solo números en DNI Vendedor")
+
+    nombre_cliente = st.text_input("NOMBRE DE CLIENTE").upper()
+    
+    dni_cliente = st.text_input("N° DE DOCUMENTO (CLIENTE)", max_chars=11)
+    if dni_cliente and not dni_cliente.isdigit():
+        st.error("⚠️ Solo números en DNI Cliente")
         
-        nombre_cliente = st.text_input("NOMBRE DE CLIENTE").upper()
+    email_cliente = st.text_input("EMAIL DE CLIENTE").lower()
+    tipo_op = st.selectbox("Tipo de Operación", ["CAPTACIÓN", "MIGRACIÓN", "COMPLETA TV", "COMPLETA MT", "COMPLETA BA"])
+    producto = st.selectbox("PRODUCTO", ["NAKED", "DUO INT + TV", "DUO TV", "DUO BA", "TRIO"])
+    cod_fe = st.text_input("Código FE").upper()
+    
+    pedido = st.text_input("N° de Pedido", max_chars=10)
+    if pedido and not pedido.isdigit():
+        st.error("⚠️ El N° de Pedido debe ser solo números")
+
+with col2:
+    detalle = st.selectbox("DETALLE", ["VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
+    direccion = st.text_input("DIRECCION DE INSTALACION").upper()
+    
+    contacto1 = st.text_input("N° DE CONTACTO DE CLIENTE 1", max_chars=9)
+    if contacto1 and not contacto1.isdigit():
+        st.error("⚠️ El contacto 1 debe ser solo números")
         
-        dni_cliente = st.text_input("N° DE DOCUMENTO (CLIENTE)", max_chars=11)
-        if dni_cliente and not dni_cliente.isdigit():
-            st.error("⚠️ El DNI del cliente solo debe contener números.")
-
-        email_cliente = st.text_input("EMAIL DE CLIENTE").lower()
-        tipo_op = st.selectbox("Tipo de Operación", ["CAPTACIÓN", "MIGRACIÓN", "COMPLETA TV", "COMPLETA MT", "COMPLETA BA"])
-        producto = st.selectbox("PRODUCTO", ["NAKED", "DUO INT + TV", "DUO TV", "DUO BA", "TRIO"])
-        cod_fe = st.text_input("Código FE").upper()
-        pedido = st.text_input("N° de Pedido", max_chars=10)
-
-    with col2:
-        detalle = st.selectbox("DETALLE", ["VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
-        direccion = st.text_input("DIRECCION DE INSTALACION").upper()
-        contacto1 = st.text_input("N° DE CONTACTO DE CLIENTE 1", max_chars=9)
-        contacto2 = st.text_input("N° DE CONTACTO DE CLIENTE 2", max_chars=9)
-        venta_piloto = st.radio("¿Venta Piloto?", ["SI", "NO"], horizontal=True)
+    contacto2 = st.text_input("N° DE CONTACTO DE CLIENTE 2", max_chars=9)
+    if contacto2 and not contacto2.isdigit():
+        st.error("⚠️ El contacto 2 debe ser solo números")
         
-        # Agregamos una opción vacía al inicio para validar
-        motivo_no_venta = st.selectbox("INDICAR MOTIVO DE NO VENTA", ["", "CUENTA CON SERVICIO DE COMPETENCIA", "CLIENTE MOVISTAR", "MALA EXPERIENCIA", "CARGO FIJO INSUFICIENTE"])        
-        
-        nom_referido = st.text_input("NOMBRE Y APELLIDO DE REFERIDO").upper()
-        cont_referido = st.text_input("N° DE CONTACTO REFERIDO", max_chars=9)
+    venta_piloto = st.radio("¿Venta Piloto?", ["SI", "NO"], horizontal=True)
+    
+    # Lógica dinámica para el Motivo de No Venta
+    motivo_no_venta = ""
+    if detalle == "NO-VENTA":
+        motivo_no_venta = st.selectbox("INDICAR MOTIVO DE NO VENTA", ["", "CUENTA CON SERVICIO DE COMPETENCIA", "CLIENTE MOVISTAR", "MALA EXPERIENCIA", "CARGO FIJO INSUFICIENTE"])
+        if motivo_no_venta == "":
+            st.warning("⚠️ Seleccione un motivo de no venta")
+            
+    nom_referido = st.text_input("NOMBRE Y APELLIDO DE REFERIDO").upper()
+    
+    cont_referido = st.text_input("N° DE CONTACTO REFERIDO", max_chars=9)
+    if cont_referido and not cont_referido.isdigit():
+        st.error("⚠️ Solo números en contacto referido")
 
-    enviado = st.form_submit_button("Enviar Registro")
+# El botón ahora es un st.button normal (fuera de un form)
+enviado = st.button("Enviar Registro")
 
-# --- 4. LÓGICA DE VALIDACIÓN Y GUARDADO (TODO EN UNO) ---
+# --- 4. LÓGICA DE GUARDADO ---
 if enviado:
-    # 1. Validaciones de formato
-    if not dni_vendedor.isdigit() or not dni_cliente.isdigit():
-        st.error("❌ Los campos de Documento (Vendedor/Cliente) deben contener solo números.")
-    
-    elif len(dni_cliente) < 8:
-        st.error("❌ El N° de Documento del cliente debe tener al menos 8 dígitos.")
-        
-    elif not nombre_cliente or not pedido:
-        st.error("❌ El Nombre del Cliente y el N° de Pedido son obligatorios.")
-    
-    # 2. Validación de Motivo de No Venta
-    elif detalle == "NO-VENTA" and motivo_no_venta == "":
-        st.error("❌ Por favor, selecciona un motivo de la lista para la NO-VENTA.")
-        
+    # Verificación final de seguridad antes de subir a Dropbox
+    errores = []
+    if not dni_vendedor.isdigit(): errores.append("DNI Vendedor")
+    if not dni_cliente.isdigit(): errores.append("DNI Cliente")
+    if not pedido.isdigit(): errores.append("N° de Pedido")
+    if not nombre_cliente: errores.append("Nombre del Cliente")
+    if detalle == "NO-VENTA" and not motivo_no_venta: errores.append("Motivo de No Venta")
+
+    if errores:
+        st.error(f"❌ No se puede guardar. Corrija los siguientes campos: {', '.join(errores)}")
     else:
-        # SI PASA TODAS LAS VALIDACIONES, SE EJECUTA EL GUARDADO
         ahora = datetime.now()
-        
         nuevos_datos = {
             "Marca temporal": ahora.strftime("%d/%m/%Y %H:%M:%S"),
             "ZONAL": zonal,
@@ -123,11 +135,10 @@ if enviado:
             "Hora": ahora.strftime("%H:%M:%S")
         }
 
-        df_para_subir = pd.DataFrame([nuevos_datos])
-        
         try:
-            save_to_dropbox(df_para_subir)
-            st.success("✅ ¡Registro validado y guardado exitosamente!")
+            save_to_dropbox(pd.DataFrame([nuevos_datos]))
+            st.success("✅ ¡Registro guardado exitosamente!")
             st.balloons()
+            # Opcional: st.rerun() para limpiar el formulario después de guardar
         except Exception as e:
-            st.error(f"❌ Error al conectar con Dropbox: {e}")
+            st.error(f"❌ Error: {e}")
