@@ -48,15 +48,15 @@ with col1:
         st.error("⚠️ Solo números")
         
     email_cliente = st.text_input("EMAIL DE CLIENTE").lower()
-    tipo_op = st.selectbox("Tipo de Operación", ["CAPTACIÓN", "MIGRACIÓN", "COMPLETA TV", "COMPLETA MT", "COMPLETA BA"])
-    producto = st.selectbox("PRODUCTO", ["NAKED", "DUO INT + TV", "DUO TV", "DUO BA", "TRIO"])
+    tipo_op = st.selectbox("Tipo de Operación", ["SELECCIONA","CAPTACIÓN", "MIGRACIÓN", "COMPLETA TV", "COMPLETA MT", "COMPLETA BA"])
+    producto = st.selectbox("SELECCIONA","PRODUCTO", ["NAKED", "DUO INT + TV", "DUO TV", "DUO BA", "TRIO"])
     cod_fe = st.text_input("Código FE").upper()
     pedido = st.text_input("N° de Pedido *", max_chars=10)
     if pedido and not pedido.isdigit():
         st.error("⚠️ Solo números")
 
 with col2:
-    detalle = st.selectbox("DETALLE", ["VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
+    detalle = st.selectbox("SELECCIONA","DETALLE", ["VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
     direccion = st.text_input("DIRECCION DE INSTALACION").upper()
     
     contacto1 = st.text_input("N° DE CONTACTO DE CLIENTE 1 *", max_chars=9)
@@ -64,7 +64,7 @@ with col2:
         st.error("⚠️ Debe tener 9 dígitos numéricos")
             
     contacto2 = st.text_input("N° DE CONTACTO DE CLIENTE 2", max_chars=9)
-    venta_piloto = st.radio("¿Venta Piloto?", ["SI", "NO"], horizontal=True)
+    venta_piloto = st.radio("¿Venta Piloto?", ["SI", "NO"], index=None, horizontal=True)
     
     motivo_no_venta = ""
     if detalle == "NO-VENTA":
@@ -86,6 +86,15 @@ if enviado:
     if not contacto1 or len(contacto1) != 9: errores.append("Contacto 1 (9 dígitos)")
     if detalle == "NO-VENTA" and not motivo_no_venta: errores.append("Motivo de No Venta")
 
+if enviado:
+    errores = []
+    
+    # ... (tus otras validaciones de DNI, Nombre, etc.) ...
+    
+    # NUEVA VALIDACIÓN PARA VENTA PILOTO
+    if venta_piloto is None:
+        errores.append("¿Venta Piloto? (Debe seleccionar SI o NO)")
+    
     if errores:
         st.error("❌ Corrija los siguientes puntos:")
         for err in errores: st.write(f"- {err}")
