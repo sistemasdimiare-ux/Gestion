@@ -128,17 +128,36 @@ if enviar:
         tz = pytz.timezone('America/Lima')
         marca = datetime.now(tz)
         
-        # Fila para el Excel (incluye supervisor y zonal automáticos)
+        # Preparamos la fila con TODA la información del vendedor
+        # Ahora incluimos Nombre, Supervisor y Zonal en cada registro
         fila = [
-            marca.strftime("%d/%m/%Y %H:%M:%S"), zonal_fija, f"'{st.session_state.dni_fijo}", 
-            supervisor_fijo, detalle, t_op, nombre, f"'{dni_c}", dire, mail, 
-            f"'{c1}", f"'{c2}", prod, fe, f"'{pedido}", piloto, motivo_nv, 
-            n_ref, f"'{c_ref}", marca.strftime("%d/%m/%Y")
+            marca.strftime("%d/%m/%Y %H:%M:%S"), # A: Fecha y Hora
+            zonal_fija,                         # B: Zonal
+            f"'{st.session_state.dni_fijo}",    # C: DNI Vendedor (con ')
+            nombre_vend,                        # D: Nombre Vendedor (NUEVO)
+            supervisor_fijo,                    # E: Supervisor (NUEVO)
+            detalle,                            # F: Detalle de Gestión
+            t_op,                               # G: Tipo Operación
+            nombre,                             # H: Nombre Cliente
+            f"'{dni_c}",                        # I: DNI Cliente (con ')
+            dire,                               # J: Dirección
+            mail,                               # K: Email
+            f"'{c1}",                           # L: Contacto 1
+            f"'{c2}",                           # M: Contacto 2
+            prod,                               # N: Producto
+            fe,                                 # O: Código FE
+            f"'{pedido}",                       # P: Pedido
+            piloto,                             # Q: Piloto
+            motivo_nv,                          # R: Motivo No-Venta
+            n_ref,                              # S: Nombre Referido
+            f"'{c_ref}",                        # T: Contacto Referido
+            marca.strftime("%d/%m/%Y")          # U: Fecha solo
         ]
-        
+
         if save_to_google_sheets(fila):
-            st.success(f"✅ Gestión guardada. Supervisor: {supervisor_fijo}")
+            st.success(f"✅ Gestión registrada para {nombre_vend} (Sup: {supervisor_fijo})")
             st.balloons()
             time.sleep(2)
             st.session_state.form_key += 1
             st.rerun()
+
