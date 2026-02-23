@@ -116,3 +116,14 @@ if enviar:
     else:
         tz = pytz.timezone('America/Lima')
         marca = datetime.now(tz)
+        fila = [
+            marca.strftime("%d/%m/%Y %H:%M:%S"), st.session_state.zonal_fija, st.session_state.dni_fijo,
+            detalle, t_op, nombre, dni_c, dire, mail, c1, c2, prod, fe, pedido, piloto,
+            motivo_nv, n_ref, c_ref, marca.strftime("%d/%m/%Y"), marca.strftime("%H:%M:%S")
+        ]
+
+        if save_to_google_sheets(fila):
+            st.success("✅ Gestión registrada con éxito.")
+            st.balloons()
+            time.sleep(2)
+            reiniciar_formulario()
