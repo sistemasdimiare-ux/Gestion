@@ -12,7 +12,7 @@ def save_to_google_sheets(datos_fila):
         creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], scope)
         client = gspread.authorize(creds)
         sheet = client.open("GestionDiaria").sheet1
-        sheet.append_row(datos_fila)
+        sheet.append_row(datos_fila, value_input_option='USER_ENTERED')
         return True
     except Exception as e:
         st.error(f"❌ Error de conexión: {e}")
@@ -29,7 +29,7 @@ def reiniciar_formulario():
     st.session_state.form_key += 1
     st.rerun()
 
-# SIDEBAR: Los datos del vendedor NO se borran al guardar
+# SIDEBAR: Se mantiene fijo tras guardar
 st.sidebar.title("👤 Identificación Vendedor")
 st.session_state.zonal_fija = st.sidebar.selectbox(
     "ZONAL", 
@@ -41,29 +41,24 @@ st.session_state.dni_fijo = st.sidebar.text_input("MI DNI (8 dígitos)", value=s
 # --- 3. FORMULARIO (CAPA 2: GESTIÓN) ---
 st.title("📝 Registro de Gestión Diaria")
 
-# Detalle fuera del form para actualización instantánea
 detalle = st.selectbox("DETALLE DE GESTIÓN *", ["SELECCIONA", "VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
 
 with st.form(key=f"main_f_{st.session_state.form_key}"):
     
-    # Inicialización de variables por defecto
     motivo_nv = nombre = dni_c = t_op = prod = mail = dire = c1 = c2 = fe = n_ref = c_ref = "N/A"
     pedido = "0"
     piloto = "NO"
 
-    # CAPA DINÁMICA: NO-VENTA
     if detalle == "NO-VENTA":
         st.subheader("Opciones de No-Venta")
         motivo_nv = st.selectbox("MOTIVO DE NO VENTA *", ["SELECCIONA", "COMPETENCIA", "CLIENTE MOVISTAR", "MALA EXPERIENCIA", "CARGO FIJO ALTO", "SIN COBERTURA"])
 
-    # CAPA DINÁMICA: REFERIDO
     elif detalle == "REFERIDO":
         st.subheader("Datos del Referido")
         r1, r2 = st.columns(2)
         n_ref = r1.text_input("NOMBRE DEL REFERIDO").upper()
         c_ref = r2.text_input("CONTACTO DEL REFERIDO (9 dígitos)", max_chars=9)
 
-    # CAPA DINÁMICA: VENTA FIJA Y OTROS
     elif detalle != "SELECCIONA":
         col1, col2 = st.columns(2)
         with col1:
@@ -82,48 +77,51 @@ with st.form(key=f"main_f_{st.session_state.form_key}"):
 
     enviar = st.form_submit_button("🚀 REGISTRAR GESTIÓN", use_container_width=True)
 
-# --- 4. VALIDACIONES ESTRICTAS ---
+# --- 4. VALIDACIONES CON PRESERVACIÓN DE CEROS ---
 if enviar:
     errores = []
     
-    # Validar Vendedor
-    if len(st.session_state.dni_fijo) != 8: errores.append("⚠️ Falta DNI del Vendedor (8 dígitos) en el panel izquierdo.")
-    if st.session_state.zonal_fija == "SELECCIONA": errores.append("⚠️ Falta seleccionar Zonal en el panel izquierdo.")
-
-    if detalle == "SELECCIONA":
-        errores.append("⚠️ Debe seleccionar el Detalle de Gestión.")
+    # Validar que sean solo dígitos pero mantenerlos como string
+    if not st.session_state.dni_fijo.isdigit() or len(st.session_state.dni_fijo) != 8:
+        errores.append("⚠️ El DNI del vendedor debe tener 8 números (ejemplo: 08541236).")
     
-    elif detalle == "NO-VENTA":
-        if motivo_nv == "SELECCIONA": errores.append("⚠️ Falta seleccionar el Motivo de No-Venta.")
-    
-    elif detalle == "REFERIDO":
-        if not n_ref: errores.append("⚠️ Falta Nombre del Referido.")
-        if len(c_ref) != 9: errores.append("⚠️ Falta Contacto del Referido (debe tener 9 dígitos).")
-    
-    elif detalle == "VENTA FIJA":
-        # REGLAS OBLIGATORIAS PARA VENTA FIJA
-        if not nombre: errores.append("⚠️ Falta llenar: NOMBRE DEL CLIENTE.")
-        if not fe: errores.append("⚠️ Falta llenar: CÓDIGO FE.")
-        if not dire: errores.append("⚠️ Falta llenar: DIRECCIÓN DE INSTALACIÓN.")
-        if len(dni_c) != 8: errores.append("⚠️ El DNI DEL CLIENTE debe tener 8 dígitos.")
-        if len(pedido) != 10: errores.append("⚠️ El N° DE PEDIDO debe tener 10 dígitos.")
-        if len(c1) != 9: errores.append("⚠️ El CONTACTO 1 debe tener 9 dígitos.")
-        if t_op == "SELECCIONA": errores.append("⚠️ Falta seleccionar: TIPO DE OPERACIÓN.")
-        if prod == "SELECCIONA": errores.append("⚠️ Falta seleccionar: PRODUCTO.")
+    if detalle == "VENTA FIJA":
+        if not nombre: errores.append("⚠️ Falta NOMBRE DEL CLIENTE.")
+        if not fe: errores.append("⚠️ Falta CÓDIGO FE.")
+        if not dire: errores.append("⚠️ Falta DIRECCIÓN.")
+        if not dni_c.isdigit() or len(dni_c) != 8:
+            errores.append("⚠️ El DNI DEL CLIENTE debe tener 8 números.")
+        if not pedido.isdigit() or len(pedido) != 10:
+            errores.append("⚠️ El N° DE PEDIDO debe tener 10 números.")
+        if not c1.isdigit() or len(c1) != 9:
+            errores.append("⚠️ El CONTACTO 1 debe tener 9 números.")
 
     if errores:
         for err in errores: st.error(err)
     else:
         tz = pytz.timezone('America/Lima')
         marca = datetime.now(tz)
+        
+        # Agregamos ' antes de los números que pueden empezar con cero para que Sheets los respete como texto
         fila = [
-            marca.strftime("%d/%m/%Y %H:%M:%S"), st.session_state.zonal_fija, st.session_state.dni_fijo,
-            detalle, t_op, nombre, dni_c, dire, mail, c1, c2, prod, fe, pedido, piloto,
-            motivo_nv, n_ref, c_ref, marca.strftime("%d/%m/%Y"), marca.strftime("%H:%M:%S")
+            marca.strftime("%d/%m/%Y %H:%M:%S"), 
+            st.session_state.zonal_fija, 
+            f"'{st.session_state.dni_fijo}", # Preserva el cero
+            detalle, t_op, nombre, 
+            f"'{dni_c}", # Preserva el cero
+            dire, mail, 
+            f"'{c1}", # Preserva el cero
+            f"'{c2}", 
+            prod, fe, 
+            f"'{pedido}", # Preserva el cero
+            piloto, motivo_nv, n_ref, 
+            f"'{c_ref}", 
+            marca.strftime("%d/%m/%Y"), 
+            marca.strftime("%H:%M:%S")
         ]
 
         if save_to_google_sheets(fila):
-            st.success("✅ Gestión registrada con éxito.")
+            st.success("✅ Gestión registrada (Ceros iniciales preservados).")
             st.balloons()
             time.sleep(2)
             reiniciar_formulario()
