@@ -1,186 +1,142 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 import pytz
 import time
 
-# --- 1. CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Sistema de Ventas Pro", layout="wide")
+# Intento de importación segura de Plotly
+try:
+    import plotly.express as px
+    PLOTLY_AVAILABLE = True
+except ImportError:
+    PLOTLY_AVAILABLE = False
 
-# --- 2. CONEXIÓN A GOOGLE SHEETS ---
+# --- 1. CONFIGURACIÓN ---
+st.set_page_config(page_title="Sistema Ventas Pro", layout="wide")
+
+# --- 2. CONEXIÓN ---
 def conectar_google():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], scope)
-    client = gspread.authorize(creds)
-    return client.open("GestionDiaria")
-
-def save_to_google_sheets(datos_fila):
-    try:
-        doc = conectar_google()
-        sheet = doc.sheet1
-        sheet.append_row(datos_fila, value_input_option='USER_ENTERED')
-        return True
-    except Exception as e:
-        st.error(f"❌ Error al guardar: {e}")
-        return False
+    return gspread.authorize(creds).open("GestionDiaria")
 
 @st.cache_data(ttl=60)
-def cargar_datos_completos():
+def cargar_todo_seguro():
     try:
         doc = conectar_google()
-        # Cargar Estructura (Vendedores y Supervisores)
+        # Estructura (Vendedores)
         ws_est = doc.worksheet("Estructura")
         data_est = ws_est.get_all_values()
-        df_est = pd.DataFrame(data_est[1:], columns=data_est[0])
-        # Limpiamos columnas fantasmas y DNI (solo números y 8 dígitos)
-        df_est = df_est.loc[:, ~df_est.columns.str.contains('^$|^Unnamed')]
-        df_est['DNI'] = df_est['DNI'].astype(str).str.replace(r'\D', '', regex=True).str.zfill(8)
-
-        # Cargar Gestiones ya realizadas
+        df_e = pd.DataFrame(data_est[1:], columns=data_est[0])
+        # Limpieza radical de DNI: elimina cualquier cosa que no sea número
+        df_e['DNI'] = df_e['DNI'].astype(str).str.replace(r'\D', '', regex=True).str.zfill(8)
+        
+        # Gestiones (Sheet1)
         ws_gest = doc.sheet1
-        df_gest = pd.DataFrame(ws_gest.get_all_records())
-        return df_est, df_gest
+        df_g = pd.DataFrame(ws_gest.get_all_records())
+        return df_e, df_g
     except Exception as e:
-        st.error(f"Error al cargar datos de Google Sheets: {e}")
+        st.error(f"Error de conexión: {e}")
         return pd.DataFrame(), pd.DataFrame()
 
 # --- 3. LÓGICA DE IDENTIFICACIÓN ---
 if "form_key" not in st.session_state: st.session_state.form_key = 0
-df_maestro, df_gestiones = cargar_datos_completos()
 
-# Sidebar para el DNI (Disponible en ambas pestañas)
+df_maestro, df_gestiones = cargar_todo_seguro()
+
 st.sidebar.title("👤 Identificación")
-dni_input = st.sidebar.text_input("INGRESE SU DNI VENDEDOR", max_chars=8)
-dni_limpio = "".join(filter(str.isdigit, dni_input)).zfill(8)
+dni_raw = st.sidebar.text_input("INGRESE SU DNI VENDEDOR", max_chars=8)
+# Limpiamos lo que el usuario escribe para comparar peras con peras
+dni_limpio = "".join(filter(str.isdigit, dni_raw)).zfill(8)
 
 vendedor_info = df_maestro[df_maestro['DNI'] == dni_limpio] if not df_maestro.empty else pd.DataFrame()
 
-if not vendedor_info.empty and len(dni_input) == 8:
+if not vendedor_info.empty and len(dni_raw) == 8:
     supervisor_fijo = vendedor_info.iloc[0]['SUPERVISOR']
     zonal_fija = vendedor_info.iloc[0]['ZONAL']
     nombre_vend = vendedor_info.iloc[0]['NOMBRE VENDEDOR']
     st.sidebar.success(f"✅ Hola {nombre_vend}")
-    st.sidebar.info(f"📍 Zonal: {zonal_fija}\n👤 Sup: {supervisor_fijo}")
+    st.sidebar.info(f"📍 {zonal_fija} | 👤 {supervisor_fijo}")
 else:
     supervisor_fijo = "N/A"
     zonal_fija = "SELECCIONA"
     nombre_vend = "N/A"
-    if len(dni_input) == 8:
-        st.sidebar.warning("⚠️ DNI no encontrado en la base.")
+    if len(dni_raw) == 8:
+        st.sidebar.warning("⚠️ DNI no hallado. Revisa que esté en la pestaña 'Estructura'.")
 
-# --- 4. DISEÑO DE PESTAÑAS ---
-tab_registro, tab_dashboard = st.tabs(["📝 REGISTRO DE GESTIÓN", "📊 DASHBOARD COMERCIAL"])
+# --- 4. PESTAÑAS ---
+tab1, tab2 = st.tabs(["📝 REGISTRO", "📊 DASHBOARD"])
 
-# --- PESTAÑA 1: FORMULARIO ---
-with tab_registro:
-    st.title("📝 Registro de Gestión Diaria")
-    detalle = st.selectbox("DETALLE DE GESTIÓN *", ["SELECCIONA", "VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
+with tab1:
+    st.title("Registro de Gestión")
+    detalle = st.selectbox("DETALLE DE GESTIÓN *", ["SELECCIONA", "VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO"])
 
-    with st.form(key=f"main_form_{st.session_state.form_key}"):
-        # Variables por defecto
-        motivo_nv = nombre = dni_c = t_op = prod = mail = dire = c1 = c2 = fe = n_ref = c_ref = "N/A"
-        pedido = "0"; piloto = "NO"
+    with st.form(key=f"form_{st.session_state.form_key}"):
+        # Campos inicializados
+        m_nv = n_cl = d_cl = t_op = prod = dir_cl = c_fe = n_ref = c_ref = "N/A"
+        ped = "0"; mail = "N/A"; c1 = c2 = "N/A"; pil = "NO"
 
         if detalle == "NO-VENTA":
-            st.subheader("Opciones de No-Venta")
-            motivo_nv = st.selectbox("MOTIVO *", ["SELECCIONA", "COMPETENCIA", "CLIENTE MOVISTAR", "MALA EXPERIENCIA", "CARGO FIJO ALTO", "SIN COBERTURA"])
-        
+            m_nv = st.selectbox("MOTIVO *", ["SELECCIONA", "COMPETENCIA", "MALA EXPERIENCIA", "CARGO ALTO", "SIN COBERTURA"])
         elif detalle == "REFERIDO":
-            st.subheader("Datos del Referido")
-            r1, r2 = st.columns(2)
-            n_ref = r1.text_input("NOMBRE REFERIDO").upper()
-            c_ref = r2.text_input("CONTACTO REFERIDO (9)", max_chars=9)
-        
+            n_ref = st.text_input("NOMBRE REFERIDO").upper()
+            c_ref = st.text_input("CONTACTO REFERIDO", max_chars=9)
         elif detalle != "SELECCIONA":
-            col1, col2 = st.columns(2)
-            with col1:
-                nombre = st.text_input("NOMBRE CLIENTE").upper()
-                dni_c = st.text_input("DNI CLIENTE (8)", max_chars=8)
-                t_op = st.selectbox("OPERACIÓN", ["SELECCIONA", "CAPTACIÓN", "MIGRACIÓN", "ALTA"])
-                prod = st.selectbox("PRODUCTO", ["SELECCIONA", "BA", "DUO", "TRIO"])
-                pedido = st.text_input("PEDIDO (10)", max_chars=10)
-            with col2:
-                fe = st.text_input("CÓDIGO FE")
-                dire = st.text_input("DIRECCIÓN").upper()
-                c1 = st.text_input("CONTACTO 1 (9)", max_chars=9)
-                mail = st.text_input("EMAIL")
-                piloto = st.radio("¿PILOTO?", ["SI", "NO"], index=1, horizontal=True)
+            c_a, c_b = st.columns(2)
+            n_cl = c_a.text_input("CLIENTE").upper()
+            d_cl = c_a.text_input("DNI CLIENTE", max_chars=8)
+            t_op = c_a.selectbox("OPERACIÓN", ["CAPTACIÓN", "MIGRACIÓN", "ALTA"])
+            ped = c_b.text_input("PEDIDO", max_chars=10)
+            c_fe = c_b.text_input("CÓDIGO FE")
+            c1 = c_b.text_input("CELULAR", max_chars=9)
 
-        enviar = st.form_submit_button("🚀 REGISTRAR GESTIÓN", use_container_width=True)
+        enviar = st.form_submit_button("🚀 GUARDAR GESTIÓN", use_container_width=True)
 
     if enviar:
         if supervisor_fijo == "N/A":
-            st.error("❌ No puedes registrar sin un DNI válido.")
+            st.error("❌ El DNI debe ser válido para guardar.")
         elif detalle == "SELECCIONA":
-            st.error("⚠️ Selecciona un detalle de gestión.")
-        elif detalle == "NO-VENTA" and motivo_nv == "SELECCIONA":
-            st.error("⚠️ Selecciona el motivo de no venta.")
+            st.error("⚠️ Elige un detalle.")
         else:
             tz = pytz.timezone('America/Lima')
-            marca = datetime.now(tz)
-            
-            # Recordatorio: El DNI y Zonal del vendedor no se reescriben manualmente
+            ahora = datetime.now(tz)
+            # Registro según las 22 columnas configuradas
             fila = [
-                marca.strftime("%d/%m/%Y %H:%M:%S"), zonal_fija, f"'{dni_limpio}",
-                nombre_vend, supervisor_fijo, detalle, t_op, nombre, f"'{dni_c}", 
-                dire, mail, f"'{c1}", f"'{c2}", prod, fe, f"'{pedido}", 
-                piloto, motivo_nv, n_ref, f"'{c_ref}", 
-                marca.strftime("%d/%m/%Y"), marca.strftime("%H:%M:%S")
+                ahora.strftime("%d/%m/%Y %H:%M:%S"), zonal_fija, f"'{dni_limpio}",
+                nombre_vend, supervisor_fijo, detalle, t_op, n_cl, f"'{d_cl}", 
+                dir_cl, mail, f"'{c1}", f"'{c2}", prod, c_fe, f"'{ped}", 
+                pil, m_nv, n_ref, f"'{c_ref}", ahora.strftime("%d/%m/%Y"), 
+                ahora.strftime("%H:%M:%S")
             ]
             
-            if save_to_google_sheets(fila):
-                st.success(f"✅ Registrado con éxito para el Supervisor {supervisor_fijo}")
+            # Guardado directo
+            try:
+                conectar_google().sheet1.append_row(fila, value_input_option='USER_ENTERED')
+                st.success(f"✅ ¡Guardado! Supervisor: {supervisor_fijo}")
                 st.balloons()
                 time.sleep(2)
                 st.session_state.form_key += 1
                 st.rerun()
+            except Exception as e:
+                st.error(f"Error al guardar: {e}")
 
-# --- PESTAÑA 2: DASHBOARD ---
-with tab_dashboard:
-    st.title("📊 Dashboard de Rendimiento")
+with tab2:
+    st.title("Dashboard de Control")
+    if not PLOTLY_AVAILABLE:
+        st.error("❌ La librería Plotly no está instalada. El Dashboard no puede mostrar gráficos.")
+        st.info("Asegúrate de haber hecho REBOOT en Streamlit Cloud después de subir el requirements.txt")
     
     if df_gestiones.empty:
-        st.info("No hay datos registrados todavía.")
+        st.info("No hay datos para mostrar.")
     else:
-        # Filtros de Dashboard
-        f1, f2 = st.columns(2)
-        with f1:
-            z_filtro = st.multiselect("Filtrar por Zonal", options=df_gestiones['ZONAL'].unique())
-        with f2:
-            s_filtro = st.multiselect("Filtrar por Supervisor", options=df_gestiones['SUPERVISOR'].unique())
-
-        df_f = df_gestiones.copy()
-        if z_filtro: df_f = df_f[df_f['ZONAL'].isin(z_filtro)]
-        if s_filtro: df_f = df_f[df_f['SUPERVISOR'].isin(s_filtro)]
-
-        # KPIs
-        m1, m2, m3 = st.columns(3)
-        ventas_fijas = len(df_f[df_f['DETALLE GESTIÓN'] == 'VENTA FIJA'])
-        m1.metric("Total Gestiones", len(df_f))
-        m2.metric("Ventas Fijas", ventas_fijas)
-        m3.metric("% Efectividad", f"{round(ventas_fijas/len(df_f)*100, 1) if len(df_f)>0 else 0}%")
-
-        # Gráficos
-        g1, g2 = st.columns(2)
-        with g1:
-            st.subheader("Ventas por Supervisor")
-            df_v = df_f[df_f['DETALLE GESTIÓN'] == 'VENTA FIJA']
-            if not df_v.empty:
-                fig_sup = px.bar(df_v.groupby('SUPERVISOR').size().reset_index(name='Ventas'), 
-                                 x='SUPERVISOR', y='Ventas', color='SUPERVISOR', text_auto=True)
-                st.plotly_chart(fig_sup, use_container_width=True)
+        st.subheader("Resumen de Gestiones")
+        st.dataframe(df_gestiones, use_container_width=True)
         
-        with g2:
-            st.subheader("Motivos de No-Venta")
-            df_nv = df_f[df_f['DETALLE GESTIÓN'] == 'NO-VENTA']
-            if not df_nv.empty:
-                fig_nv = px.pie(df_nv.groupby('MOTIVO NO-VENTA').size().reset_index(name='Total'), 
-                                names='MOTIVO NO-VENTA', values='Total', hole=0.4)
-                st.plotly_chart(fig_nv, use_container_width=True)
-
-        st.subheader("🥇 Top Vendedores")
-        ranking = df_f[df_f['DETALLE GESTIÓN'] == 'VENTA FIJA'].groupby(['NOMBRE VENDEDOR', 'SUPERVISOR']).size().reset_index(name='VENTAS').sort_values('VENTAS', ascending=False)
-        st.dataframe(ranking, use_container_width=True, hide_index=True)
+        if PLOTLY_AVAILABLE:
+            df_v = df_gestiones[df_gestiones['DETALLE GESTIÓN'] == 'VENTA FIJA']
+            if not df_v.empty:
+                fig = px.bar(df_v.groupby('SUPERVISOR').size().reset_index(name='Ventas'), 
+                             x='SUPERVISOR', y='Ventas', title="Ventas por Supervisor")
+                st.plotly_chart(fig, use_container_width=True)
