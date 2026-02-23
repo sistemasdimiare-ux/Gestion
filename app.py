@@ -41,7 +41,7 @@ def cargar_estructura():
         
         # Seleccionamos las columnas necesarias. 
         # IMPORTANTE: Los nombres en tu Excel (Fila 1) deben ser exactos.
-        columnas_req = ['DNI', 'NOMBRE VENDEDOR APP', 'SUPERVISOR APP', 'ZONAL APP']
+        columnas_req = ['DNI', 'NOMBRE VENDEDOR', 'SUPERVISOR', 'ZONAL']
         df = df_completo[columnas_req].copy()
         
         # Limpiamos y normalizamos el DNI
