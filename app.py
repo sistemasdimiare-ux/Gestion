@@ -69,7 +69,6 @@ with st.form(key=f"main_form_{st.session_state.form_key}"):
             cod_fe = st.text_input("Código FE")
             
         with col2:
-            motivo_no_venta = st.selectbox("INDICAR MOTIVO DE NO VENTA", ["", "COMPETENCIA", "CLIENTE MOVISTAR", "MALA EXPERIENCIA", "CARGO FIJO ALTO"])
             email = st.text_input("EMAIL DE CLIENTE")
             direccion = st.text_input("DIRECCION DE INSTALACION").upper()
             cont1 = st.text_input("N° DE CONTACTO DE CLIENTE 1", max_chars=9)
