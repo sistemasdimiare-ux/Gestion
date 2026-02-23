@@ -6,17 +6,7 @@ from datetime import datetime
 import pytz
 import time
 
-# Intento de importación segura de Plotly para evitar que la app caiga
-try:
-    import plotly.express as px
-    PLOTLY_AVAILABLE = True
-except ImportError:
-    PLOTLY_AVAILABLE = False
-
-# --- 1. CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Gestión Comercial Pro", layout="wide")
-
-# --- 2. FUNCIONES DE CONEXIÓN Y CARGA ---
+# --- 1. CONEXIÓN A GOOGLE SHEETS ---
 def conectar_google():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(st.secrets["gcp_service_account"], scope)
@@ -24,122 +14,127 @@ def conectar_google():
     return client.open("GestionDiaria")
 
 @st.cache_data(ttl=60)
-def cargar_datos_completos():
+def cargar_estructura():
     try:
         doc = conectar_google()
-        # Carga pestaña Estructura
-        ws_est = doc.worksheet("Estructura")
-        data_est = ws_est.get_all_values()
-        df_est = pd.DataFrame(data_est[1:], columns=data_est[0])
-        
-        # Limpieza de columnas vacías y DNI (Inmune a espacios o símbolos)
-        df_est = df_est.loc[:, ~df_est.columns.str.contains('^$|^Unnamed')]
-        df_est['DNI'] = df_est['DNI'].astype(str).str.replace(r'[^0-9]', '', regex=True).str.zfill(8)
-        
-        # Carga pestaña Sheet1 (Gestiones)
-        ws_gest = doc.sheet1
-        df_gest = pd.DataFrame(ws_gest.get_all_records())
-        return df_est, df_gest
+        ws = doc.worksheet("Estructura")
+        data = ws.get_all_values()
+        df = pd.DataFrame(data[1:], columns=data[0])
+        # Limpieza de columnas vacías y normalización de DNI
+        df = df.loc[:, ~df.columns.str.contains('^$|^Unnamed')]
+        df['DNI'] = df['DNI'].astype(str).str.replace(r'[^0-9]', '', regex=True).str.zfill(8)
+        return df
     except Exception as e:
-        st.error(f"Error de conexión: {e}")
-        return pd.DataFrame(), pd.DataFrame()
+        st.error(f"Error cargando base maestra: {e}")
+        return pd.DataFrame()
 
-# --- 3. LÓGICA DE IDENTIFICACIÓN ---
+# --- 2. CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="Registro de Ventas", layout="centered")
+
 if "form_key" not in st.session_state: st.session_state.form_key = 0
-df_maestro, df_gestiones = cargar_datos_completos()
+if "dni_fijo" not in st.session_state: st.session_state.dni_fijo = ""
 
-st.sidebar.title("👤 Identificación")
-dni_input = st.sidebar.text_input("INGRESE SU DNI VENDEDOR", max_chars=8)
-dni_limpio = "".join(filter(str.isdigit, dni_input)).zfill(8)
+df_maestro = cargar_estructura()
 
-vendedor_info = df_maestro[df_maestro['DNI'] == dni_limpio] if not df_maestro.empty else pd.DataFrame()
+# --- 3. IDENTIFICACIÓN (VLOOKUP) EN SIDEBAR ---
+st.sidebar.title("👤 Vendedor")
+dni_input = st.sidebar.text_input("DNI VENDEDOR", value=st.session_state.dni_fijo, max_chars=8)
+st.session_state.dni_fijo = dni_input
+
+dni_buscado = "".join(filter(str.isdigit, dni_input)).zfill(8)
+vendedor_info = df_maestro[df_maestro['DNI'] == dni_buscado] if not df_maestro.empty else pd.DataFrame()
 
 if not vendedor_info.empty and len(dni_input) == 8:
     supervisor_fijo = vendedor_info.iloc[0]['SUPERVISOR']
     zonal_fija = vendedor_info.iloc[0]['ZONAL']
     nombre_vend = vendedor_info.iloc[0]['NOMBRE VENDEDOR']
-    st.sidebar.success(f"✅ Hola {nombre_vend}")
-    st.sidebar.info(f"📍 Zonal: {zonal_fija}\n\n👤 Sup: {supervisor_fijo}")
+    st.sidebar.success(f"✅ {nombre_vend}")
+    st.sidebar.info(f"📍 {zonal_fija}\n👤 Sup: {supervisor_fijo}")
 else:
-    supervisor_fijo = "N/A"; zonal_fija = "SELECCIONA"; nombre_vend = "N/A"
+    supervisor_fijo = "N/A"
+    zonal_fija = "SELECCIONA"
+    nombre_vend = "N/A"
     if len(dni_input) == 8:
-        st.sidebar.warning("⚠️ DNI no encontrado en Estructura.")
+        st.sidebar.warning("⚠️ DNI no registrado")
 
-# --- 4. DISEÑO POR PESTAÑAS (TABS) ---
-tab_reg, tab_dash = st.tabs(["📝 REGISTRO DE GESTIÓN", "📊 DASHBOARD COMERCIAL"])
+# --- 4. FORMULARIO DE REGISTRO ---
+st.title("📝 Registro de Gestión Diaria")
+detalle = st.selectbox("DETALLE DE GESTIÓN *", ["SELECCIONA", "VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
 
-with tab_reg:
-    st.title("📝 Registro de Gestión Diaria")
-    detalle = st.selectbox("DETALLE DE GESTIÓN *", ["SELECCIONA", "VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
+with st.form(key=f"main_form_{st.session_state.form_key}"):
+    # Variables iniciales (22 columnas)
+    motivo_nv = nombre = dni_c = t_op = prod = mail = dire = c1 = c2 = fe = n_ref = c_ref = "N/A"
+    pedido = "0"; piloto = "NO"
 
-    with st.form(key=f"main_f_{st.session_state.form_key}"):
-        # Variables para las 22 columnas
-        mot_nv = nom = d_cl = t_op = prod = mail = dire = c1 = c2 = fe = n_ref = c_ref = "N/A"
-        ped = "0"; pil = "NO"
-
-        if detalle == "NO-VENTA":
-            mot_nv = st.selectbox("MOTIVO *", ["SELECCIONA", "COMPETENCIA", "MALA EXPERIENCIA", "CARGO ALTO", "SIN COBERTURA"])
-        elif detalle == "REFERIDO":
-            n_ref = st.text_input("NOMBRE REFERIDO").upper()
-            c_ref = st.text_input("CONTACTO REFERIDO", max_chars=9)
-        elif detalle != "SELECCIONA":
-            c_l1, c_l2 = st.columns(2)
-            with c_l1:
-                nom = st.text_input("CLIENTE").upper()
-                d_cl = st.text_input("DNI CLIENTE", max_chars=8)
-                t_op = st.selectbox("OPERACIÓN", ["SELECCIONA", "CAPTACIÓN", "MIGRACIÓN", "ALTA"])
-            with c_l2:
-                prod = st.selectbox("PRODUCTO", ["SELECCIONA", "BA", "DUO", "TRIO"])
-                fe = st.text_input("CÓDIGO FE")
-                ped = st.text_input("PEDIDO", max_chars=10)
-                c1 = st.text_input("CELULAR", max_chars=9)
-                pil = st.radio("¿PILOTO?", ["SI", "NO"], index=1, horizontal=True)
-
-        enviar = st.form_submit_button("🚀 REGISTRAR GESTIÓN", use_container_width=True)
-
-    if enviar:
-        if supervisor_fijo == "N/A":
-            st.error("❌ DNI no validado. Revisa el panel izquierdo.")
-        elif detalle == "SELECCIONA":
-            st.error("⚠️ Elige un detalle.")
-        else:
-            tz = pytz.timezone('America/Lima')
-            marca = datetime.now(tz)
-            # El vendedor no debe reescribir su dni y zonal; si es NO-VENTA solo llena el motivo.
-            fila = [
-                marca.strftime("%d/%m/%Y %H:%M:%S"), zonal_fija, f"'{dni_limpio}",
-                nombre_vend, supervisor_fijo, detalle, t_op, nom, f"'{d_cl}", 
-                dire, mail, f"'{c1}", f"'{c2}", prod, fe, f"'{ped}", 
-                pil, mot_nv, n_ref, f"'{c_ref}", 
-                marca.strftime("%d/%m/%Y"), marca.strftime("%H:%M:%S")
-            ]
-            try:
-                conectar_google().sheet1.append_row(fila, value_input_option='USER_ENTERED')
-                st.success(f"✅ ¡Guardado!")
-                st.balloons()
-                time.sleep(2)
-                st.session_state.form_key += 1
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error al guardar: {e}")
-
-with tab_dash:
-    st.title("📊 Dashboard de Rendimiento")
-    if not PLOTLY_AVAILABLE:
-        st.error("❌ Librería Plotly no instalada en el servidor.")
+    if detalle == "NO-VENTA":
+        # Instrucción: Si es NO-VENTA, solo debe llenar el motivo.
+        motivo_nv = st.selectbox("MOTIVO NO-VENTA *", ["SELECCIONA", "COMPETENCIA", "MALA EXPERIENCIA", "CARGO FIJO ALTO", "SIN COBERTURA"])
     
-    if df_gestiones.empty:
-        st.info("No hay datos registrados.")
-    else:
-        # Filtros básicos
-        s_f = st.multiselect("Supervisor", options=df_gestiones['SUPERVISOR'].unique())
-        df_f = df_gestiones.copy()
-        if s_f: df_f = df_f[df_f['SUPERVISOR'].isin(s_f)]
+    elif detalle == "REFERIDO":
+        n_ref = st.text_input("NOMBRE REFERIDO").upper()
+        c_ref = st.text_input("CONTACTO REFERIDO", max_chars=9)
+    
+    elif detalle != "SELECCIONA":
+        col1, col2 = st.columns(2)
+        with col1:
+            nombre = st.text_input("NOMBRE CLIENTE").upper()
+            dni_c = st.text_input("DNI CLIENTE", max_chars=8)
+            t_op = st.selectbox("OPERACIÓN", ["SELECCIONA", "CAPTACIÓN", "MIGRACIÓN", "ALTA"])
+            prod = st.selectbox("PRODUCTO", ["SELECCIONA", "BA", "DUO", "TRIO"])
+        with col2:
+            fe = st.text_input("CÓDIGO FE")
+            dire = st.text_input("DIRECCIÓN").upper()
+            c1 = st.text_input("CELULAR 1", max_chars=9)
+            pedido = st.text_input("N° PEDIDO", max_chars=10)
+            piloto = st.radio("¿PILOTO?", ["SI", "NO"], index=1, horizontal=True)
 
-        if PLOTLY_AVAILABLE:
-            df_v = df_f[df_f['DETALLE GESTIÓN'] == 'VENTA FIJA']
-            if not df_v.empty:
-                fig = px.bar(df_v.groupby('SUPERVISOR').size().reset_index(name='V'), x='SUPERVISOR', y='V', title="Ventas")
-                st.plotly_chart(fig, use_container_width=True)
-        
-        st.dataframe(df_f, use_container_width=True)
+    enviar = st.form_submit_button("🚀 GUARDAR GESTIÓN", use_container_width=True)
+
+# --- 5. LÓGICA DE GUARDADO ---
+if enviar:
+    if supervisor_fijo == "N/A":
+        st.error("❌ Identificación inválida.")
+    elif detalle == "SELECCIONA":
+        st.error("⚠️ Elige un detalle de gestión.")
+    else:
+        try:
+            tz = pytz.timezone('America/Lima')
+            ahora = datetime.now(tz)
+            
+            # Fila exacta de 22 columnas
+            fila = [
+                ahora.strftime("%d/%m/%Y %H:%M:%S"), # A: Marca Temporal
+                zonal_fija,                          # B: Zonal
+                f"'{dni_buscado}",                  # C: DNI Vendedor
+                nombre_vend,                         # D: Nombre Vendedor
+                supervisor_fijo,                     # E: Supervisor
+                detalle,                             # F: Detalle Gestión
+                t_op,                                # G: Tipo Operación
+                nombre,                              # H: Nombre Cliente
+                f"'{dni_c}",                         # I: DNI Cliente
+                dire,                                # J: Dirección
+                mail,                                # K: Email
+                f"'{c1}",                            # L: Contacto 1
+                f"'{c2}",                            # M: Contacto 2
+                prod,                                # N: Producto
+                fe,                                  # O: Código FE
+                f"'{pedido}",                        # P: Pedido
+                piloto,                              # Q: Piloto
+                motivo_nv,                           # R: Motivo No-Venta
+                n_ref,                               # S: Nombre Referido
+                f"'{c_ref}",                         # T: Contacto Referido
+                ahora.strftime("%d/%m/%Y"),          # U: Fecha
+                ahora.strftime("%H:%M:%S")           # V: Hora
+            ]
+            
+            doc = conectar_google()
+            doc.sheet1.append_row(fila, value_input_option='USER_ENTERED')
+            
+            st.success("✅ ¡Guardado correctamente!")
+            st.balloons()
+            time.sleep(2)
+            st.session_state.form_key += 1
+            st.rerun()
+            
+        except Exception as e:
+            st.error(f"Error al guardar: {e}")
