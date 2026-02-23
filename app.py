@@ -15,39 +15,48 @@ def save_to_google_sheets(datos_fila):
         sheet.append_row(datos_fila)
         return True
     except Exception as e:
-        st.error(f"❌ Error: {e}")
+        st.error(f"❌ Error de conexión: {e}")
         return False
 
 # --- 2. PERSISTENCIA (CAPA 1: VENDEDOR) ---
-st.set_page_config(page_title="Registro de Ventas", layout="wide")
+st.set_page_config(page_title="Registro de Gestión Ventas", layout="wide")
 
 if "zonal_fija" not in st.session_state: st.session_state.zonal_fija = "SELECCIONA"
 if "dni_fijo" not in st.session_state: st.session_state.dni_fijo = ""
 if "form_key" not in st.session_state: st.session_state.form_key = 0
 
-# Sidebar fijo
+# Sidebar persistente
 st.sidebar.title("👤 Datos Vendedor")
 st.session_state.zonal_fija = st.sidebar.selectbox("ZONAL", ["SELECCIONA", "TRUJILLO", "LIMA NORTE", "LIMA SUR", "LIMA ESTE", "HUANCAYO", "CAJAMARCA", "TARAPOTO"], index=["SELECCIONA", "TRUJILLO", "LIMA NORTE", "LIMA SUR", "LIMA ESTE", "HUANCAYO", "CAJAMARCA", "TARAPOTO"].index(st.session_state.zonal_fija))
-st.session_state.dni_fijo = st.sidebar.text_input("DNI VENDEDOR", value=st.session_state.dni_fijo, max_chars=8)
+st.session_state.dni_fijo = st.sidebar.text_input("MI DNI (8 dígitos)", value=st.session_state.dni_fijo, max_chars=8)
 
 # --- 3. FORMULARIO (CAPA 2: GESTIÓN) ---
 st.title("📝 Registro de Gestión")
 
-# IMPORTANTE: El detalle va FUERA del form para que la página reaccione al instante
+# Selector de detalle fuera del form para actualización instantánea
 detalle = st.selectbox("DETALLE DE GESTIÓN *", ["SELECCIONA", "VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
 
 with st.form(key=f"main_f_{st.session_state.form_key}"):
     
-    # LÓGICA DINÁMICA DE CAMPOS
+    # Inicialización de variables para evitar errores
+    motivo_nv, nombre, dni_c, t_op, prod, pedido, mail, dire, c1, c2, fe, piloto, n_ref, c_ref = ["N/A"] * 13
+    pedido = "0" # Por ser numérico en lógica de validación
+    piloto = "NO"
+
+    # CASO A: NO-VENTA
     if detalle == "NO-VENTA":
         st.subheader("Opciones de No-Venta")
         motivo_nv = st.selectbox("MOTIVO DE NO VENTA *", ["SELECCIONA", "COMPETENCIA", "CLIENTE MOVISTAR", "MALA EXPERIENCIA", "CARGO FIJO ALTO", "SIN COBERTURA"])
-        
-        # Seteo interno de nulos
-        nombre, dni_c, t_op, prod, pedido, mail, dire, c1, c2, fe, piloto, n_ref, c_ref = "N/A", "N/A", "N/A", "N/A", "0", "N/A", "N/A", "N/A", "N/A", "N/A", "NO", "N/A", "N/A"
-        
-    else:
-        motivo_nv = "N/A"
+
+    # CASO B: REFERIDO (Tu nueva petición)
+    elif detalle == "REFERIDO":
+        st.subheader("Datos del Referido")
+        r1, r2 = st.columns(2)
+        n_ref = r1.text_input("NOMBRE DEL REFERIDO").upper()
+        c_ref = r2.text_input("CONTACTO DEL REFERIDO (9 dígitos)", max_chars=9)
+
+    # CASO C: VENTAS Y OTROS (Campos completos)
+    elif detalle != "SELECCIONA":
         col1, col2 = st.columns(2)
         with col1:
             nombre = st.text_input("NOMBRE DE CLIENTE").upper()
@@ -61,26 +70,23 @@ with st.form(key=f"main_f_{st.session_state.form_key}"):
             c1 = st.text_input("CONTACTO 1", max_chars=9)
             c2 = st.text_input("CONTACTO 2", max_chars=9)
             fe = st.text_input("CÓDIGO FE")
-            piloto = st.radio("¿PILOTO?", ["SI", "NO"], index=1, horizontal=True)
-
-        st.markdown("---")
-        r1, r2 = st.columns(2)
-        n_ref = r1.text_input("NOMBRE REFERIDO").upper()
-        c_ref = r2.text_input("CONTACTO REFERIDO", max_chars=9)
+            piloto = st.radio("¿ES VENTA PILOTO?", ["SI", "NO"], index=1, horizontal=True)
 
     enviar = st.form_submit_button("🚀 REGISTRAR GESTIÓN", use_container_width=True)
 
-# --- 4. VALIDACIÓN Y ENVÍO ---
+# --- 4. LÓGICA DE VALIDACIÓN ---
 if enviar:
     errores = []
-    if len(st.session_state.dni_fijo) != 8: errores.append("⚠️ Revisa tu DNI en la izquierda.")
-    if detalle == "SELECCIONA": errores.append("⚠️ Selecciona el Detalle.")
+    if len(st.session_state.dni_fijo) != 8: errores.append("⚠️ Revisa tu DNI de vendedor en la izquierda.")
+    if detalle == "SELECCIONA": errores.append("⚠️ Elige un Detalle de gestión.")
     
-    if detalle == "NO-VENTA":
-        if motivo_nv == "SELECCIONA": errores.append("⚠️ Indica el motivo de NO VENTA.")
-    else:
-        if not nombre or len(dni_c) < 8 or len(pedido) < 10:
-            errores.append("⚠️ Completa los datos del cliente (DNI 8 dígitos, Pedido 10 dígitos).")
+    if detalle == "NO-VENTA" and motivo_nv == "SELECCIONA":
+        errores.append("⚠️ Indica el motivo de NO VENTA.")
+    elif detalle == "REFERIDO" and (not n_ref or len(c_ref) != 9):
+        errores.append("⚠️ Completa nombre y contacto del referido (9 dígitos).")
+    elif detalle not in ["NO-VENTA", "REFERIDO", "SELECCIONA"]:
+        if not nombre or len(dni_c) != 8 or len(pedido) != 10 or len(c1) != 9:
+            errores.append("⚠️ Datos incompletos: Nombre, DNI(8), Pedido(10) y Contacto(9) son obligatorios.")
 
     if errores:
         for e in errores: st.error(e)
@@ -94,6 +100,6 @@ if enviar:
         ]
 
         if save_to_google_sheets(fila):
-            st.success("✅ ¡Guardado!")
+            st.success("✅ ¡Registro Exitoso!")
             st.session_state.form_key += 1
             st.rerun()
