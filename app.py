@@ -44,4 +44,34 @@ with st.form(key=f"form_{st.session_state.form_key}"):
     else:
         col1, col2 = st.columns(2)
         with col1:
-            nombre = st.text_input("NOMBRE
+            nombre = st.text_input("NOMBRE CLIENTE").upper()
+            dni_c = st.text_input("DNI CLIENTE", max_chars=8)
+            t_op = st.selectbox("OPERACIÓN", ["SELECCIONA", "CAPTACIÓN", "MIGRACIÓN", "COMPLETA TV"])
+        with col2:
+            pedido = st.text_input("N° PEDIDO (10)", max_chars=10)
+            tel1 = st.text_input("TELÉFONO (9)", max_chars=9)
+            producto = st.selectbox("PRODUCTO", ["SELECCIONA", "DUO BA", "TRIO"])
+        motivo = "N/A"
+
+    enviar = st.form_submit_button("REGISTRAR AHORA")
+
+if enviar:
+    errores = []
+    if len(st.session_state.dni_fijo) != 8: errores.append("Tu DNI de vendedor debe tener 8 dígitos.")
+    if detalle == "SELECCIONA": errores.append("Selecciona el detalle.")
+    if detalle == "NO-VENTA" and not motivo: errores.append("Indica el motivo de la no venta.")
+    
+    if errores:
+        for e in errores: st.error(e)
+    else:
+        tz = pytz.timezone('America/Lima')
+        ahora = datetime.now(tz)
+        fila = [
+            ahora.strftime("%d/%m/%Y %H:%M:%S"), st.session_state.zonal_fija, st.session_state.dni_fijo, 
+            detalle, "OP", nombre, dni_c, "DIR", "MAIL", tel1, "", "PROD", "", pedido, 
+            "NO", motivo, "", "", ahora.strftime("%d/%m/%Y"), ahora.strftime("%H:%M:%S")
+        ]
+        if save_to_google_sheets(fila):
+            st.success("✅ ¡Guardado!")
+            st.session_state.form_key += 1 # Esto limpia el formulario central
+            st.rerun() # Pero el Sidebar se mantiene por el session_state
