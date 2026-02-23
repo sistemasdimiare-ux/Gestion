@@ -2,5 +2,4 @@ pandas
 gspread
 oauth2client
 pytz
-plotly
 streamlit
