@@ -152,6 +152,7 @@ if enviar:
             n_ref,                              # S: Nombre Referido
             f"'{c_ref}",                        # T: Contacto Referido
             marca.strftime("%d/%m/%Y")          # U: Fecha solo
+            Hora.dt_ahora.strftime("%H:%M:%S")  # V: hora solo
         ]
 
         if save_to_google_sheets(fila):
