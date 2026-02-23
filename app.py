@@ -10,7 +10,7 @@ import pytz
 st.set_page_config(page_title="Gestión de Ventas", layout="wide")
 
 def save_to_dropbox(df_nuevo):
-    # Reemplaza con tu TOKEN real
+    # Asegúrate de que el Token sea vigente
     DROPBOX_ACCESS_TOKEN = "sl.u.AGU1roA833OnwoBa7BMsz0uAzxHVKm7ycNn_IDJQW-WuvTixlpz5273T91nGHfPFh1l9RO_2AhmnmMPnwh2EOkYpRZTX8uf9k_hn1l_Ht-RD0nlFAVhxCryYtbkKZf5z4WH4acwlAUZ-jOecOUQdV2j6q8yROMhHKRVX_T8wg8cSn9GAcZqPacnF5QbY6JkKXoRMDWiZRHbAeF3kY-Yd55hKcf3AeML5LHULY7F7zTTjqzgvOKVGT-fcl01d5Vj6FkfuMJy67G_ivJmuKOY2Od_msX95w7VLSTBobcIMs7PkAIF1k-ic2Q-jym4ApIbR_a5wzfLMuKtf45xjqH9TyBf9shYoPGe-87MNGm3uwyxMegjAuJ8d-9LAvyg6Zo2HBVvYpDpAH9A7xtVQjm-aYiKdVjUskQpLUdSx5BkUX_4qGc1BFLv2_eRgJvxxozCFL5kQmg3xslQ4nA5grUcQqw9JnYv5gaoi8F6zQ6E2fr_MmMvawaNCvM-LjVs3pMqduD3vB145rvh41rei1rToF_bN44KYJB-HWc4AZG1zMac3OtFWlyb_WRLGZTxK7FjLRoMlPkOKPk_0lxq4s3xeZbi-1ZnPTCyp5vMo42Ny3I8_1LG9YLVBErUZAKJ4XCLnPDckWsQTbGGEeOCdpDOe3Z10rK-el1A_rI4YpDa1Pcf5BLPSsparVXF2pueOvXE7_lorSNKGw7rVlRrCGkig4cNvqp11mKd4uANYcBw4jC6q_uV16jb0C96b07R_A5IKgXLi2tOJpuNWaQgAZxxFyA2dk904CpDyizjkwNsbQ3xdJmYYDiRTaRXGvfMts45kJGJwOj8HvJCUlp2Z8ksHoGJwcREZGr5kktNl4FvKnsdO56sOnoLmPOcGK0DTGeEt24lAmYnf5az_CTtANi2WHTCSlsRRu5Sof-9ehIZ5SOFhKXyjkkpHr7FXA2fJwk3Oa5ayFfhJDH3vOS2EFxAqyV2vS0Rkzc_M_1iJKBY6iCqqnqRqhCP0CTUCjvRDbxn99ya4tC4FZVL1UqNeXnyYo9QQXjW8iPJCS3ZLlJLPlpII1JkYsfGpC1zZ4Esf55ZU7s5SKZNves8ad8HSewOg9p6iGhnItFPXpyb6i2ET1jZpsbK7uZErqDf6Uzw1RwMNzsq79f19t7jad69qwtCsiKtBeJYk8Xg8ZdC5kthylWZnbA2CikruJQURCIaHbyZn0pYiShqjkIfEF3nBp1KrXfFAs1ZvAHFD7iBd83w0ZJkXLDQy3He0AxoQUS-Em9qrrtrAZkf8cI_wGOkfBVqZHmLKP_p67HALzK5QUyJWl8VjOz6X38E7HJxURKkfDcGUONw" 
     DROPBOX_FILE_PATH = "/Gestion Analitica/Alvaro/GestionDiaria.xlsx"
     dbx = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
@@ -26,12 +26,11 @@ def save_to_dropbox(df_nuevo):
         df_final.to_excel(writer, index=False)
     dbx.files_upload(output.getvalue(), DROPBOX_FILE_PATH, mode=dropbox.files.WriteMode.overwrite)
 
-# --- 2. LÓGICA DE LIMPIEZA SEGURA ---
+# --- 2. LÓGICA DE LIMPIEZA ---
 if "form_count" not in st.session_state:
     st.session_state.form_count = 0
 
 def reiniciar_todo():
-    # Esta es la única forma de limpiar sin errores de session_state
     st.session_state.form_count += 1
     st.rerun()
 
@@ -42,9 +41,8 @@ dni_vendedor = st.sidebar.text_input("N° DOCUMENTO VENDEDOR", max_chars=11)
 
 st.title("📝 Registro de Gestión de Ventas")
 
-# --- 4. FORMULARIO CON KEY DINÁMICA ---
-# Al cambiar la key (form_count), el formulario se resetea solo
-with st.form(key=f"formulario_principal_{st.session_state.form_count}"):
+# --- 4. FORMULARIO ---
+with st.form(key=f"main_form_{st.session_state.form_count}"):
     col1, col2 = st.columns(2)
 
     with col1:
@@ -56,51 +54,53 @@ with st.form(key=f"formulario_principal_{st.session_state.form_count}"):
 
     with col2:
         detalle = st.selectbox("DETALLE *", ["SELECCIONA", "VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
-        # Este es el campo que NO debe ser ignorado si es NO-VENTA
         motivo_no_venta = st.selectbox("INDICAR MOTIVO DE NO VENTA", ["", "COMPETENCIA", "CLIENTE MOVISTAR", "MALA EXPERIENCIA", "CARGO FIJO ALTO"])
         direccion = st.text_input("DIRECCION DE INSTALACION").upper()
         contacto1 = st.text_input("N° DE CONTACTO 1", max_chars=9)
-        venta_piloto = st.radio("¿Venta Piloto?", ["SI", "NO"], index=None, horizontal=True)
+        # Cambiamos el radio a un selectbox simple o le quitamos el index=None para evitar problemas de nulos
+        venta_piloto = st.radio("¿Venta Piloto?", ["SI", "NO"], horizontal=True)
 
     enviado = st.form_submit_button("🚀 ENVIAR REGISTRO", use_container_width=True)
 
-# --- 5. VALIDACIÓN SEGÚN EL CASO ---
+# --- 5. VALIDACIÓN Y GUARDADO ---
 if enviado:
     errores = []
     
-    # Validaciones mínimas SIEMPRE
+    # Datos básicos para cualquier registro
     if not nombre_cliente: errores.append("Nombre de Cliente")
     if not dni_cliente: errores.append("DNI/RUC Cliente")
     if detalle == "SELECCIONA": errores.append("Debe elegir el DETALLE")
 
-    # Si es NO-VENTA, ignoramos el resto pero validamos el motivo
+    # LÓGICA CONDICIONAL: Si es NO-VENTA
     if detalle == "NO-VENTA":
         if not motivo_no_venta:
-            errores.append("Para NO-VENTA, debe elegir un Motivo")
+            errores.append("Para NO-VENTA, es obligatorio el Motivo")
+    # Si es cualquier otra cosa (Venta, agendado, etc.)
     else:
-        # Si NO es NO-VENTA, validamos los campos de venta
         if tipo_op == "SELECCIONA": errores.append("Tipo de Operación")
         if not pedido: errores.append("N° de Pedido")
-        if not contacto1: errores.append("Contacto 1")
-        if venta_piloto is None: errores.append("Venta Piloto (SI/NO)")
+        if not contacto1: errores.append("Número de Contacto")
 
     if errores:
-        st.error("❌ Por favor corrija:")
+        st.error("⚠️ Faltan datos obligatorios:")
         for e in errores: st.write(f"- {e}")
     else:
-        # PROCESO DE GUARDADO
+        # HORA PERÚ
         zona_pe = pytz.timezone('America/Lima')
         ahora = datetime.now(zona_pe)
         
-        datos_a_guardar = {
+        # Construcción segura del diccionario
+        datos_dict = {
             "Marca temporal": ahora.strftime("%d/%m/%Y %H:%M:%S"),
             "ZONAL": zonal,
             "N° DOCUMENTO VENDEDOR": dni_vendedor,
             "DETALLE": detalle,
             "NOMBRE DE CLIENTE": nombre_cliente,
             "N° DE DOCUMENTO": dni_cliente,
+            "DIRECCION DE INSTALACION": direccion,
+            "N° DE CONTACTO DE CLIENTE 1": contacto1,
+            # Aquí está el truco: si es NO-VENTA, forzamos valores de relleno
             "INDICAR MOTIVO DE NO VENTA": motivo_no_venta if detalle == "NO-VENTA" else "N/A",
-            # Si es NO-VENTA mandamos N/A o vacío a los campos de venta
             "Tipo de Operación": tipo_op if detalle != "NO-VENTA" else "N/A",
             "PRODUCTO": producto if detalle != "NO-VENTA" else "N/A",
             "N° de Pedido": pedido if detalle != "NO-VENTA" else "0",
@@ -110,10 +110,10 @@ if enviado:
         }
 
         try:
-            save_to_dropbox(pd.DataFrame([datos_a_guardar]))
+            save_to_dropbox(pd.DataFrame([datos_dict]))
             st.success("✅ ¡Guardado con éxito!")
             st.balloons()
-            time.sleep(2)
-            reiniciar_todo() # Limpia el formulario sin errores de session_state
+            time.sleep(1.5)
+            reiniciar_todo()
         except Exception as e:
             st.error(f"❌ Error al guardar: {e}")
