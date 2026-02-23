@@ -23,62 +23,83 @@ def save_to_google_sheets(datos_fila):
         st.error(f"❌ Error al guardar: {e}")
         return False
 
-# --- 2. CARGA DE BASE MAESTRA (Estructura de Supervisores) ---
-@st.cache_data(ttl=600) # Se actualiza cada 10 min
+# --- 2. CARGA DE BASE MAESTRA (Lectura flexible desde columna G) ---
+@st.cache_data(ttl=300)
 def cargar_estructura():
     try:
         doc = conectar_google()
-        # Leemos la pestaña llamada "Estructura"
         ws = doc.worksheet("Estructura")
-        df = pd.DataFrame(ws.get_all_records())
-        # Convertimos DNI a string para evitar líos con los ceros
-        df['DNI'] = df['DNI'].astype(str).str.zfill(8)
+        
+        # Obtenemos todos los valores de la pestaña
+        data = ws.get_all_values()
+        
+        # Convertimos a DataFrame usando la primera fila como nombres de columna
+        df_completo = pd.DataFrame(data[1:], columns=data[0])
+        
+        # Eliminamos columnas vacías (esto limpia las columnas A-F si están vacías)
+        df_completo = df_completo.loc[:, ~df_completo.columns.str.contains('^$|^Unnamed')]
+        
+        # Seleccionamos las columnas necesarias. 
+        # IMPORTANTE: Los nombres en tu Excel (Fila 1) deben ser exactos.
+        columnas_req = ['DNI', 'NOMBRE VENDEDOR', 'SUPERVISOR', 'ZONAL']
+        df = df_completo[columnas_req].copy()
+        
+        # Limpiamos y normalizamos el DNI
+        df['DNI'] = df['DNI'].astype(str).str.strip().str.zfill(8)
         return df
-    except:
+    except Exception as e:
+        st.error(f"⚠️ Error: No se encontraron las columnas necesarias en 'Estructura'. Verifica que los nombres en la Fila 1 sean DNI, NOMBRE VENDEDOR, SUPERVISOR y ZONAL. {e}")
         return pd.DataFrame(columns=['DNI', 'NOMBRE VENDEDOR', 'SUPERVISOR', 'ZONAL'])
 
-# --- 3. CONFIGURACIÓN Y PERSISTENCIA ---
+# --- 3. CONFIGURACIÓN ---
 st.set_page_config(page_title="Sistema de Ventas Pro", layout="wide")
 
-if "dni_fijo" not in st.session_state: st.session_state.dni_fijo = ""
 if "form_key" not in st.session_state: st.session_state.form_key = 0
+if "dni_fijo" not in st.session_state: st.session_state.dni_fijo = ""
 
 df_maestro = cargar_estructura()
 
-# --- SIDEBAR INTELIGENTE ---
+# --- SIDEBAR ---
 st.sidebar.title("👤 Identificación")
 dni_input = st.sidebar.text_input("INGRESE SU DNI VENDEDOR", value=st.session_state.dni_fijo, max_chars=8)
 st.session_state.dni_fijo = dni_input
 
-# Búsqueda automática de Supervisor y Zonal
-vendedor_info = df_maestro[df_maestro['DNI'] == dni_input]
+# Búsqueda de datos del vendedor
+dni_buscado = dni_input.strip().zfill(8)
+vendedor_info = df_maestro[df_maestro['DNI'] == dni_buscado]
 
-if not vendedor_info.empty:
+if not vendedor_info.empty and len(dni_input) == 8:
     supervisor_fijo = vendedor_info.iloc[0]['SUPERVISOR']
     zonal_fija = vendedor_info.iloc[0]['ZONAL']
     nombre_vend = vendedor_info.iloc[0]['NOMBRE VENDEDOR']
     st.sidebar.success(f"✅ Hola {nombre_vend}")
     st.sidebar.info(f"📍 Zonal: {zonal_fija}\n\n👤 Sup: {supervisor_fijo}")
 else:
-    supervisor_fijo = "NO ENCONTRADO"
+    supervisor_fijo = "N/A"
     zonal_fija = "SELECCIONA"
-    if dni_input: st.sidebar.warning("⚠️ DNI no registrado en Estructura.")
+    if len(dni_input) == 8:
+        st.sidebar.warning("⚠️ DNI no encontrado en la columna G de Estructura.")
 
-# --- 4. FORMULARIO DE GESTIÓN ---
+# --- 4. FORMULARIO ---
 st.title("📝 Registro de Gestión Diaria")
 
 detalle = st.selectbox("DETALLE DE GESTIÓN *", ["SELECCIONA", "VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO", "PRE-VENTA"])
 
 with st.form(key=f"main_f_{st.session_state.form_key}"):
+    # Variables iniciales (Evita el ValueError de las imágenes anteriores)
     motivo_nv = nombre = dni_c = t_op = prod = mail = dire = c1 = c2 = fe = n_ref = c_ref = "N/A"
     pedido = "0"; piloto = "NO"
 
     if detalle == "NO-VENTA":
         st.subheader("Opciones de No-Venta")
         motivo_nv = st.selectbox("MOTIVO *", ["SELECCIONA", "COMPETENCIA", "CLIENTE MOVISTAR", "MALA EXPERIENCIA", "CARGO FIJO ALTO", "SIN COBERTURA"])
+    
     elif detalle == "REFERIDO":
         st.subheader("Datos del Referido")
-        r1, r2 = st.columns(2); n_ref = r1.text_input("NOMBRE REFERIDO").upper(); c_ref = r2.text_input("CONTACTO REFERIDO (9)", max_chars=9)
+        r1, r2 = st.columns(2)
+        n_ref = r1.text_input("NOMBRE REFERIDO").upper()
+        c_ref = r2.text_input("CONTACTO REFERIDO (9)", max_chars=9)
+    
     elif detalle != "SELECCIONA":
         col1, col2 = st.columns(2)
         with col1:
@@ -89,34 +110,35 @@ with st.form(key=f"main_f_{st.session_state.form_key}"):
             pedido = st.text_input("PEDIDO (10)", max_chars=10)
             fe = st.text_input("CÓDIGO FE")
         with col2:
-            mail = st.text_input("EMAIL"); dire = st.text_input("DIRECCIÓN").upper()
+            mail = st.text_input("EMAIL")
+            dire = st.text_input("DIRECCIÓN").upper()
             c1 = st.text_input("CONTACTO 1 (9)", max_chars=9)
             c2 = st.text_input("CONTACTO 2 (9)", max_chars=9)
             piloto = st.radio("¿PILOTO?", ["SI", "NO"], index=1, horizontal=True)
 
     enviar = st.form_submit_button("🚀 REGISTRAR GESTIÓN", use_container_width=True)
 
-# --- 5. VALIDACIONES Y ENVÍO ---
+# --- 5. ENVÍO ---
 if enviar:
-    errores = []
-    if supervisor_fijo == "NO ENCONTRADO": errores.append("⚠️ Tu DNI no está en la base de supervisores.")
-    if detalle == "VENTA FIJA":
-        if not nombre or not fe or not dire: errores.append("⚠️ Datos obligatorios incompletos.")
-        if not dni_c.isdigit() or len(dni_c) != 8: errores.append("⚠️ DNI Cliente debe ser de 8 números.")
-        if not c1.isdigit() or len(c1) != 9: errores.append("⚠️ Contacto debe ser de 9 números.")
-    
-    if errores:
-        for err in errores: st.error(err)
+    if supervisor_fijo == "N/A":
+        st.error("❌ DNI no validado. Asegúrate de estar registrado en la Estructura.")
+    elif detalle == "SELECCIONA":
+        st.error("⚠️ Elige un detalle de gestión.")
     else:
-        tz = pytz.timezone('America/Lima'); marca = datetime.now(tz)
-        # La fila ahora incluye SUPERVISOR automáticamente
+        tz = pytz.timezone('America/Lima')
+        marca = datetime.now(tz)
+        
+        # Fila para el Excel (incluye supervisor y zonal automáticos)
         fila = [
             marca.strftime("%d/%m/%Y %H:%M:%S"), zonal_fija, f"'{st.session_state.dni_fijo}", 
-            supervisor_fijo, # Nueva columna D para tu Dashboard
-            detalle, t_op, nombre, f"'{dni_c}", dire, mail, c1, c2, prod, fe, pedido, 
-            piloto, motivo_nv, n_ref, c_ref, marca.strftime("%d/%m/%Y")
+            supervisor_fijo, detalle, t_op, nombre, f"'{dni_c}", dire, mail, 
+            f"'{c1}", f"'{c2}", prod, fe, f"'{pedido}", piloto, motivo_nv, 
+            n_ref, f"'{c_ref}", marca.strftime("%d/%m/%Y")
         ]
+        
         if save_to_google_sheets(fila):
-            st.success(f"✅ ¡Registrado! Supervisor: {supervisor_fijo}")
-            st.balloons(); time.sleep(2)
-            st.session_state.form_key += 1; st.rerun()
+            st.success(f"✅ Gestión guardada. Supervisor: {supervisor_fijo}")
+            st.balloons()
+            time.sleep(2)
+            st.session_state.form_key += 1
+            st.rerun()
