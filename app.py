@@ -151,7 +151,7 @@ if enviar:
             motivo_nv,                          # R: Motivo No-Venta
             n_ref,                              # S: Nombre Referido
             f"'{c_ref}",                        # T: Contacto Referido
-            marca.strftime("%d/%m/%Y")          # U: Fecha solo
+            marca.strftime("%d/%m/%Y"),         # U: Fecha solo
             Hora.dt_ahora.strftime("%H:%M:%S")  # V: hora solo
         ]
 
