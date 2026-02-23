@@ -73,7 +73,7 @@ with st.form(key=f"main_f_{st.session_state.form_key}"):
             dire = st.text_input("DIRECCIÓN").upper()
             c1 = st.text_input("CONTACTO 1 (9)", max_chars=9)
             c2 = st.text_input("CONTACTO 2 (9)", max_chars=9)
-            fe = st.text_input("CÓDIGO FE")
+            fe = st.text_input("CÓDIGO FE(13)", max_chars=13)
             piloto = st.radio("¿VENTA PILOTO?", ["SI", "NO"], index=1, horizontal=True)
 
     enviar = st.form_submit_button("🚀 REGISTRAR GESTIÓN", use_container_width=True)
