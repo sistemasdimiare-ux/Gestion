@@ -24,7 +24,6 @@ def cargar_maestro():
             ws = doc.worksheet("Estructura")
             data = ws.get_all_values()
             df = pd.DataFrame(data[1:], columns=data[0])
-            # Limpieza de DNI para asegurar el match
             df['DNI'] = df['DNI'].astype(str).str.replace(r'[^0-9]', '', regex=True).str.zfill(8)
             return df[['DNI', 'NOMBRE VENDEDOR', 'SUPERVISOR', 'ZONAL']]
         except:
@@ -57,7 +56,6 @@ st.title("📝 Registro de Gestión")
 detalle = st.selectbox("DETALLE DE GESTIÓN *", ["SELECCIONA", "VENTA FIJA", "NO-VENTA", "CLIENTE AGENDADO", "REFERIDO"])
 
 with st.form(key=f"f_{st.session_state.form_key}"):
-    # Variables iniciales (22 columnas)
     m_nv = n_cl = d_cl = t_op = prod = dire = c1 = c2 = mail = fe = n_ref = c_ref = "N/A"
     ped = "0"; pil = "NO"
 
@@ -75,10 +73,12 @@ with st.form(key=f"f_{st.session_state.form_key}"):
             d_cl = st.text_input("DNI CLIENTE (8) *", max_chars=8)
             t_op = st.selectbox("OPERACIÓN *", ["SELECCIONA", "CAPTACIÓN", "MIGRACIÓN", "ALTA"])
             prod = st.selectbox("PRODUCTO *", ["SELECCIONA", "BA", "DUO", "TRIO"])
+            mail = st.text_input("EMAIL")
         with c_b:
             dire = st.text_input("DIRECCIÓN *").upper()
             ped = st.text_input("N° PEDIDO (10) *", max_chars=10)
-            c1 = st.text_input("CELULAR (9) *", max_chars=9)
+            c1 = st.text_input("CONTACTO 1 (9) *", max_chars=9)
+            c2 = st.text_input("CONTACTO 2 (Opcional)", max_chars=9)
             fe = st.text_input("CÓDIGO FE")
             pil = st.radio("¿PILOTO?", ["SI", "NO"], index=1, horizontal=True)
 
@@ -87,7 +87,6 @@ with st.form(key=f"f_{st.session_state.form_key}"):
 # --- 5. VALIDACIÓN Y GUARDADO ---
 if enviar:
     errores = []
-    
     if sup_fijo == "N/A": errores.append("Vendedor no identificado.")
     if detalle == "SELECCIONA": errores.append("Seleccione Detalle de Gestión.")
     
@@ -98,31 +97,33 @@ if enviar:
         if prod == "SELECCIONA": errores.append("Seleccione Producto.")
         if not dire or dire == "N/A": errores.append("La Dirección es obligatoria.")
         if len(ped) < 5: errores.append("Número de pedido incompleto.")
-        if len(c1) < 9: errores.append("Celular debe tener 9 dígitos.")
+        if len(c1) < 9: errores.append("El Contacto 1 debe tener 9 dígitos.")
     
     if detalle == "NO-VENTA" and m_nv == "SELECCIONA":
         errores.append("Seleccione un Motivo de No-Venta.")
 
     if errores:
-        for err in errores:
-            st.error(err)
+        for err in errores: st.error(err)
     else:
         try:
             tz = pytz.timezone('America/Lima')
             ahora = datetime.now(tz)
+            # Aseguramos que Contacto 2 no sea N/A si el usuario escribió algo
+            contacto2_final = c2 if c2 else "N/A"
+            
             fila = [
                 ahora.strftime("%d/%m/%Y %H:%M:%S"), zon_fija, f"'{dni_clean}", 
                 nom_v, sup_fijo, detalle, t_op, n_cl, f"'{d_cl}", 
-                dire, mail, f"'{c1}", f"'{c2}", prod, fe, f"'{ped}", 
+                dire, mail, f"'{c1}", f"'{contacto2_final}", prod, fe, f"'{ped}", 
                 pil, m_nv, n_ref, f"'{c_ref}", ahora.strftime("%d/%m/%Y"), 
                 ahora.strftime("%H:%M:%S")
             ]
             
             conectar_google().sheet1.append_row(fila, value_input_option='USER_ENTERED')
-            st.success("✅ Registro guardado.")
+            st.success("✅ ¡Registro guardado con éxito!")
             st.balloons()
             time.sleep(1)
             st.session_state.form_key += 1
             st.rerun()
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Error al guardar: {e}")
