@@ -102,40 +102,53 @@ with tab1:
 with tab2:
     st.title("Análisis de Resultados")
     if df_gestiones.empty:
-        st.warning("No hay datos suficientes para mostrar el Dashboard.")
+        st.warning("No hay datos en el registro para mostrar gráficos.")
     else:
-        # Filtros superiores
-        f_col1, f_col2 = st.columns(2)
-        with f_col1:
-            filtro_sup = st.multiselect("Filtrar por Supervisor", options=df_gestiones['SUPERVISOR'].unique())
-        with f_col2:
-            filtro_det = st.multiselect("Filtrar por Gestión", options=df_gestiones['DETALLE GESTIÓN'].unique())
-
-        df_f = df_gestiones.copy()
-        if filtro_sup: df_f = df_f[df_f['SUPERVISOR'].isin(filtro_sup)]
-        if filtro_det: df_f = df_f[df_f['DETALLE GESTIÓN'].isin(filtro_det)]
-
-        # KPIs
-        kpi1, kpi2, kpi3 = st.columns(3)
-        total_g = len(df_f)
-        ventas = len(df_f[df_f['DETALLE GESTIÓN'] == 'VENTA FIJA'])
-        efectividad = (ventas/total_g)*100 if total_g > 0 else 0
+        # --- CAPA DE SEGURIDAD PARA COLUMNAS ---
+        # Verificamos si las columnas existen antes de usarlas
+        columnas_reales = df_gestiones.columns.tolist()
         
-        kpi1.metric("Total Gestiones", total_g)
-        kpi2.metric("Ventas Cerradas", ventas, delta=f"{ventas} fijas")
-        kpi3.metric("Efectividad", f"{efectividad:.1f}%")
+        col_sup = 'SUPERVISOR' if 'SUPERVISOR' in columnas_reales else (columnas_reales[4] if len(columnas_reales) > 4 else None)
+        col_det = 'DETALLE GESTIÓN' if 'DETALLE GESTIÓN' in columnas_reales else (columnas_reales[5] if len(columnas_reales) > 5 else None)
 
-        # Gráficos
-        g1, g2 = st.columns(2)
-        
-        with g1:
-            fig_prod = px.pie(df_f, names='DETALLE GESTIÓN', title="Distribución de Gestiones", hole=0.4)
-            st.plotly_chart(fig_prod, use_container_width=True)
+        if not col_sup or not col_det:
+            st.error(f"❌ No se encontraron las columnas necesarias. Columnas detectadas: {columnas_reales}")
+        else:
+            # Filtros superiores
+            f_col1, f_col2 = st.columns(2)
+            with f_col1:
+                filtro_sup = st.multiselect("Filtrar por Supervisor", options=df_gestiones[col_sup].unique())
+            with f_col2:
+                filtro_det = st.multiselect("Filtrar por Gestión", options=df_gestiones[col_det].unique())
+
+            df_f = df_gestiones.copy()
+            if filtro_sup: df_f = df_f[df_f[col_sup].isin(filtro_sup)]
+            if filtro_det: df_f = df_f[df_f[col_det].isin(filtro_det)]
+
+            # KPIs
+            kpi1, kpi2, kpi3 = st.columns(3)
+            total_g = len(df_f)
+            # Buscamos 'VENTA FIJA' en la columna de detalles
+            ventas = len(df_f[df_f[col_det].astype(str).str.contains('VENTA FIJA', case=False, na=False)])
+            efectividad = (ventas/total_g)*100 if total_g > 0 else 0
             
-        with g2:
-            df_v_sup = df_f[df_f['DETALLE GESTIÓN'] == 'VENTA FIJA'].groupby('SUPERVISOR').size().reset_index(name='Ventas')
-            fig_sup = px.bar(df_v_sup, x='SUPERVISOR', y='Ventas', title="Ventas por Supervisor", color='Ventas')
-            st.plotly_chart(fig_sup, use_container_width=True)
+            kpi1.metric("Total Gestiones", total_g)
+            kpi2.metric("Ventas Cerradas", ventas)
+            kpi3.metric("Efectividad", f"{efectividad:.1f}%")
 
-        st.subheader("Detalle de la Data")
-        st.dataframe(df_f, use_container_width=True)
+            # Gráficos
+            g1, g2 = st.columns(2)
+            with g1:
+                fig_prod = px.pie(df_f, names=col_det, title="Distribución de Gestiones", hole=0.4)
+                st.plotly_chart(fig_prod, use_container_width=True)
+                
+            with g2:
+                df_v_sup = df_f[df_f[col_det].astype(str).str.contains('VENTA FIJA', case=False, na=False)].groupby(col_sup).size().reset_index(name='Ventas')
+                if not df_v_sup.empty:
+                    fig_sup = px.bar(df_v_sup, x=col_sup, y='Ventas', title="Ventas por Supervisor", color='Ventas')
+                    st.plotly_chart(fig_sup, use_container_width=True)
+                else:
+                    st.info("No hay ventas fijas para graficar por supervisor.")
+
+            st.subheader("Vista Previa de Datos")
+            st.dataframe(df_f, use_container_width=True)
