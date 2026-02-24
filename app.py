@@ -7,7 +7,7 @@ import pytz
 import time
 import plotly.express as px
 
-# --- 1. CONEXIÓN Y CARGA DE DATOS ---
+# --- 1. CONEXIÓN ---
 def conectar_google():
     try:
         scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
@@ -21,17 +21,18 @@ def cargar_todo():
     doc = conectar_google()
     if not doc: return pd.DataFrame(), pd.DataFrame()
     
-    # Carga Estructura
-    ws_est = doc.worksheet("Estructura")
-    df_est = pd.DataFrame(ws_est.get_all_values()[1:], columns=ws_est.get_all_values()[0])
-    df_est['DNI'] = df_est['DNI'].astype(str).str.replace(r'[^0-9]', '', regex=True).str.zfill(8)
-    
-    # Carga Gestiones (Sheet1)
-    ws_gest = doc.sheet1
-    data_gest = ws_gest.get_all_records()
-    df_gest = pd.DataFrame(data_gest)
-    
-    return df_est, df_gest
+    # Estructura (Vendedores)
+    try:
+        ws_est = doc.worksheet("Estructura")
+        df_est = pd.DataFrame(ws_est.get_all_values()[1:], columns=ws_est.get_all_values()[0])
+        # Limpieza de DNI Vendedor
+        df_est['DNI'] = df_est['DNI'].astype(str).str.replace(r'[^0-9]', '', regex=True).str.zfill(8)
+    except:
+        df_est = pd.DataFrame()
+
+    # Gestiones (Sheet1)
+    try:
+        ws_gest = doc.sheet1
 
 # --- 2. CONFIGURACIÓN ---
 st.set_page_config(page_title="Sistema Comercial Robusto", layout="wide")
